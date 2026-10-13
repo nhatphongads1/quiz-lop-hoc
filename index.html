@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Trắc nghiệm trực tiếp — Lớp học vui</title>
+<title>Trắc nghiệm trực tiếp — Lớp học vui (v2)</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{ --bg1:#1a2a6c; --bg2:#b21f1f; --bg3:#fdbb2d; --card:#ffffff; --ink:#1f2d5a; }
@@ -11,12 +11,12 @@
   body{ margin:0; font-family:"Segoe UI",system-ui,-apple-system,sans-serif; color:var(--ink);
         background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3)); min-height:100vh; }
   #fx{ position:fixed; inset:0; pointer-events:none; z-index:50; }
-  .wrap{ max-width:860px; margin:0 auto; padding:18px 14px 40px; }
+  .wrap{ max-width:880px; margin:0 auto; padding:18px 14px 40px; }
   .card{ background:var(--card); border-radius:22px; padding:26px 22px; box-shadow:0 12px 40px rgba(0,0,0,.35); text-align:center; }
-  h1{ font-size:2rem; margin:.2em 0; } h2{ font-size:1.5rem; margin:.3em 0; }
+  h1{ font-size:2rem; margin:.2em 0; } h2{ font-size:1.5rem; margin:.3em 0; } h3{ margin:.6em 0 .3em; }
   .sub{ color:#5a6b9c; margin:.2em 0 1em; }
   .btn{ display:inline-block; border:none; cursor:pointer; font-weight:800; color:#fff;
-        background:linear-gradient(180deg,#4f7cff,#2b4fe0); padding:15px 30px; font-size:1.15rem;
+        background:linear-gradient(180deg,#4f7cff,#2b4fe0); padding:14px 26px; font-size:1.1rem;
         border-radius:16px; margin:8px 6px; box-shadow:0 6px 0 #1c35a3; transition:transform .08s; }
   .btn:active{ transform:translateY(4px); box-shadow:0 2px 0 #1c35a3; }
   .btn.green{ background:linear-gradient(180deg,#37d67a,#1d9e52); box-shadow:0 6px 0 #146c39; }
@@ -25,24 +25,29 @@
   .btn.orange:active{ box-shadow:0 2px 0 #a86200; }
   .btn.red{ background:linear-gradient(180deg,#ff6b6b,#d63c3c); box-shadow:0 6px 0 #962626; }
   .btn.red:active{ box-shadow:0 2px 0 #962626; }
+  .btn.purple{ background:linear-gradient(180deg,#b678f0,#7d3fd1); box-shadow:0 6px 0 #552a91; }
+  .btn.purple:active{ box-shadow:0 2px 0 #552a91; }
   .btn.big{ font-size:1.5rem; padding:20px 40px; }
+  .btn.small{ font-size:.95rem; padding:9px 16px; }
   .btn:disabled{ opacity:.45; cursor:default; }
-  input[type=text]{ font-size:1.3rem; padding:13px 16px; border-radius:14px; border:3px solid #c9d4f5;
-        width:100%; max-width:340px; text-align:center; outline:none; }
-  input[type=text]:focus{ border-color:#4f7cff; }
+  input[type=text], input[type=password], textarea, select{
+        font-size:1.1rem; padding:12px 14px; border-radius:14px; border:3px solid #c9d4f5;
+        width:100%; max-width:420px; outline:none; margin:6px 0; font-family:inherit; }
+  input:focus, textarea:focus, select:focus{ border-color:#4f7cff; }
+  textarea{ min-height:90px; resize:vertical; }
   .pin{ font-size:4.2rem; font-weight:900; letter-spacing:.35em; color:#2b4fe0; margin:.1em 0;
         text-indent:.35em; text-shadow:0 3px 0 #dbe4ff; }
   .plist{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:14px 0; }
   .pname{ background:#eef2ff; border:2px solid #c9d4f5; padding:8px 14px; border-radius:999px; font-weight:700; }
   .qtext{ font-size:1.6rem; font-weight:800; margin:10px 0 16px; line-height:1.35; }
+  .qimg{ max-width:100%; max-height:280px; border-radius:16px; margin:6px 0 10px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
   .opts{ display:grid; gap:12px; margin:10px 0; }
   .opt{ font-size:1.25rem; font-weight:700; padding:16px; border-radius:16px; border:3px solid #c9d4f5;
         background:#f6f8ff; cursor:pointer; transition:transform .08s; text-align:left; }
   .opt:active{ transform:scale(.97); }
   .opt.correct{ background:#d8ffe6; border-color:#1d9e52; }
   .opt.wrong{ background:#ffe1e1; border-color:#d63c3c; }
-  .opt.dim{ opacity:.55; }
-  .opt.picked{ outline:4px solid #ffb340; }
+  .opt.dim{ opacity:.55; } .opt.picked{ outline:4px solid #ffb340; }
   .timer{ font-size:3rem; font-weight:900; color:#d63c3c; }
   .timer.warn{ animation:blink .5s infinite alternate; }
   @keyframes blink{ from{opacity:1} to{opacity:.35} }
@@ -52,7 +57,6 @@
   .bar.right > div{ background:linear-gradient(90deg,#37d67a,#1d9e52); }
   table.score{ width:100%; border-collapse:collapse; margin:12px 0; font-size:1.05rem; }
   table.score td, table.score th{ padding:10px 8px; border-bottom:2px solid #eef2ff; }
-  table.score tr.me td{ background:#fff7dd; font-weight:800; }
   .podium{ display:flex; align-items:flex-end; justify-content:center; gap:14px; margin:22px 0 8px; }
   .step{ border-radius:14px 14px 0 0; padding:14px 10px 10px; font-weight:900; color:#fff; min-width:110px; }
   .step .medal{ font-size:2.6rem; display:block; }
@@ -65,50 +69,52 @@
   .toolbar{ position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center;
         padding:8px 2px; color:#fff; font-weight:800; text-shadow:0 2px 4px rgba(0,0,0,.4); }
   .toolbar button{ background:rgba(255,255,255,.2); color:#fff; border:2px solid #fff; border-radius:999px;
-        padding:6px 14px; font-weight:800; cursor:pointer; }
+        padding:6px 14px; font-weight:800; cursor:pointer; margin-left:6px; }
   .note{ font-size:.95rem; color:#5a6b9c; }
   .cfgwarn{ background:#fff1f1; border:3px solid #d63c3c; color:#962626; border-radius:14px; padding:14px; font-weight:700; }
-  select{ font-size:1.1rem; padding:12px; border-radius:12px; border:3px solid #c9d4f5; max-width:100%; }
+  .tabs{ display:flex; gap:8px; justify-content:center; margin-bottom:14px; flex-wrap:wrap; }
+  .tab{ padding:11px 18px; border-radius:999px; border:3px solid #c9d4f5; background:#eef2ff; font-weight:800; cursor:pointer; }
+  .tab.on{ background:#2b4fe0; color:#fff; border-color:#2b4fe0; }
+  .bankitem{ display:flex; justify-content:space-between; align-items:center; gap:8px; background:#f6f8ff;
+        border:2px solid #c9d4f5; border-radius:14px; padding:12px 14px; margin:8px 0; text-align:left; }
+  .bankitem b{ font-size:1.05rem; }
+  .qrow{ background:#f6f8ff; border:2px solid #c9d4f5; border-radius:14px; padding:12px 14px; margin:8px 0; text-align:left; }
+  .qrow .tag{ display:inline-block; font-size:.8rem; font-weight:800; background:#e0e7ff; color:#2b4fe0;
+        border-radius:999px; padding:3px 10px; margin-right:6px; }
+  .aimsg{ text-align:left; background:#f3efff; border:2px solid #b678f0; border-radius:14px; padding:12px 14px; margin:8px 0; }
+  .aiprev{ text-align:left; }
+  .aiprev label{ display:block; background:#f6f8ff; border:2px solid #c9d4f5; border-radius:12px; padding:10px 12px; margin:8px 0; cursor:pointer; }
+  .spin{ display:inline-block; width:26px; height:26px; border:4px solid #c9d4f5; border-top-color:#2b4fe0;
+        border-radius:50%; animation:sp 0.8s linear infinite; vertical-align:middle; }
+  @keyframes sp{ to{ transform:rotate(360deg);} }
+  .imgprompt{ font-size:.85rem; color:#7d3fd1; background:#f3efff; border-radius:8px; padding:6px 10px; margin-top:6px; display:block; }
 </style>
 </head>
 <body>
 <canvas id="fx"></canvas>
 <div class="wrap">
   <div class="toolbar">
-    <span>🎯 Trắc nghiệm trực tiếp</span>
-    <span><button id="musicBtn" onclick="toggleMusic()">🔇 Nhạc</button>
-    <button onclick="goHome()">🏠</button></span>
+    <span>🎯 Trắc nghiệm trực tiếp <small>v2</small></span>
+    <span><button id="musicBtn" onclick="toggleMusic()">🔇 Nhạc</button><button onclick="goHome()">🏠</button></span>
   </div>
   <div id="app"></div>
 </div>
 <script>
 /* =====================================================================
-   CẤU HÌNH — THẦY PHONG DÁN THÔNG TIN SUPABASE VÀO 2 DÒNG DƯỚI ĐÂY
+   CẤU HÌNH SUPABASE
    ===================================================================== */
 const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const QUESTION_TIME = 20; // số giây cho mỗi câu hỏi
+const QUESTION_TIME = 20;
+const GEMINI_MODEL = "gemini-2.0-flash";
 
-/* Bộ đề có sẵn — thầy có thể thêm/sửa trực tiếp tại đây */
-const QUESTION_SETS = {
-"Bài 3: Thông tin trên trang web (Củng cố)": [
-  { q:"Trên trang web thường có những loại thông tin nào?",
-    options:["Chỉ có văn bản","Văn bản, hình ảnh, âm thanh, video và siêu liên kết","Chỉ có hình ảnh và video","Chỉ có trò chơi và quảng cáo"],
-    correct:1, explain:"Trang web có nhiều loại thông tin: văn bản, hình ảnh, âm thanh, video và siêu liên kết." },
-  { q:"Khi em di chuột vào một siêu liên kết, con trỏ chuột sẽ thay đổi như thế nào?",
-    options:["To gấp đôi bình thường","Biến thành hình bàn tay","Nhấp nháy liên tục","Không thay đổi gì"],
-    correct:1, explain:"Khi di chuột vào siêu liên kết, con trỏ chuột chuyển thành hình bàn tay." },
-  { q:"Theo \u201cbộ lọc 3 Có\u201d, đâu KHÔNG phải là dấu hiệu của thông tin đáng tin cậy?",
-    options:["Tác giả hoặc cơ quan đăng tin rõ ràng","Có ngày tháng đăng, được cập nhật","Trình bày rõ ràng, phù hợp","Tiêu đề giật tít, nhiều quảng cáo lòe loẹt"],
-    correct:3, explain:"Thông tin đáng tin cần \u201c3 Có\u201d: tác giả/cơ quan rõ ràng, có ngày tháng cập nhật, trình bày phù hợp." },
-  { q:"Một trang web lạ yêu cầu em nhập họ tên, địa chỉ nhà và số điện thoại để nhận quà. Em nên làm gì?",
-    options:["Nhập ngay để nhận quà kẻo hết","Nhờ bạn thân nhập hộ mình","Dừng lại, giữ kín thông tin và hỏi ý kiến người lớn","Nhập bừa thông tin giả cho vui"],
-    correct:2, explain:"Đúng theo lời hứa của Biệt đội Lá chắn số: Gặp trang web lạ, em dừng lại. Thông tin riêng tư, em giữ kín. Chưa chắc chắn, em hỏi người lớn." },
-  { q:"Thông tin nào sau đây là thông tin riêng tư mà em cần giữ kín khi sử dụng Internet?",
-    options:["Màu sắc em yêu thích","Môn thể thao em hay chơi","Địa chỉ nhà và số điện thoại của bố mẹ","Tên bài hát em thích nghe"],
-    correct:2, explain:"Địa chỉ nhà, số điện thoại, mật khẩu... là thông tin riêng tư, tuyệt đối không chia sẻ cho người lạ trên mạng." }
+/* Bộ đề dự phòng khi chưa có ngân hàng */
+const FALLBACK_SET = {"Bài 3: Thông tin trên trang web (Củng cố)": [
+  {"type":"choice","q":"Trên trang web thường có những loại thông tin nào?","options":["Chỉ có văn bản","Văn bản, hình ảnh, âm thanh, video và siêu liên kết","Chỉ có hình ảnh và video","Chỉ có trò chơi và quảng cáo"],"correct":1,"explain":"Trang web có nhiều loại thông tin: văn bản, hình ảnh, âm thanh, video và siêu liên kết.","image_url":""},
+  {"type":"truefalse","q":"Thông tin trên mạng nào cũng đáng tin cậy, em không cần kiểm tra.","options":["Đúng","Sai"],"correct":1,"explain":"Cần dùng \u201cbộ lọc 3 Có\u201d: tác giả rõ ràng, có ngày tháng cập nhật, trình bày phù hợp.","image_url":""},
+  {"type":"choice","q":"Một trang web lạ yêu cầu em nhập họ tên, địa chỉ nhà và số điện thoại để nhận quà. Em nên làm gì?","options":["Nhập ngay để nhận quà kẻo hết","Nhờ bạn thân nhập hộ mình","Dừng lại, giữ kín thông tin và hỏi ý kiến người lớn","Nhập bừa thông tin giả cho vui"],"correct":2,"explain":"Đúng theo lời hứa của Biệt đội Lá chắn số: Gặp trang web lạ, em dừng lại. Thông tin riêng tư, em giữ kín. Chưa chắc chắn, em hỏi người lớn.","image_url":""}
 ]};
 </script>
 
@@ -138,7 +144,7 @@ function toggleMusic(){
   document.getElementById("musicBtn").textContent=musicOn?"🎵 Nhạc":"🔇 Nhạc";
   if(musicOn){ let i=0; SFX.click();
     musicTimer=setInterval(()=>{ tone(MELODY[i%MELODY.length],0.28,"triangle",0.1); i++; },300);
-  } else { clearInterval(musicTimer); }
+  } else clearInterval(musicTimer);
 }
 
 /* ================= PHÁO HOA ================= */
@@ -152,7 +158,7 @@ function boom(x,y,n=60){
     parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:60+Math.random()*40,c:cols[i%cols.length]}); }
   if(!fxRun){ fxRun=true; requestAnimationFrame(fxTick); }
 }
-function fireworks(n=5){ for(let i=0;i<n;i++) setTimeout(()=>boom(Math.random()*fxC.width, Math.random()*fxC.height*0.6), i*350); }
+function fireworks(n=5){ for(let i=0;i<n;i++) setTimeout(()=>boom(Math.random()*fxC.width,Math.random()*fxC.height*0.6),i*350); }
 function fxTick(){
   fxX.clearRect(0,0,fxC.width,fxC.height);
   parts=parts.filter(p=>p.life>0);
@@ -165,15 +171,17 @@ function fxTick(){
 
 /* ================= TRẠNG THÁI ================= */
 let sb=null, mode=null, room=null, players=[], answers=[];
-let myPlayer=null, myAnswer=null, timerInt=null, channel=null, lastTick=99, locking=false;
+let myPlayer=null, myAnswer=null, timerInt=null, channel=null, channel2=null, lastTick=99, locking=false;
+let bank=[], aiResult=null, editingQ=null, bankReadOnly=false;
 const app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function configured(){ return CONFIG.SUPABASE_URL.startsWith("https://") && !CONFIG.SUPABASE_ANON_KEY.includes("DÁN_"); }
-function cfgWarn(){ return `<div class="card"><div class="cfgwarn">⚠️ Thầy ơi, file này chưa được gắn Supabase.<br>Mở file index.html, dán URL và ANON KEY vào phần CONFIG ở đầu thẻ &lt;script&gt; rồi tải lại trang nhé!</div></div>`; }
 function goHome(){ location.reload(); }
 function qNow(){ return (room&&room.question_set&&room.question_set[room.current])||null; }
 function remain(){ if(!room||!room.question_started_at) return QUESTION_TIME;
-  return Math.max(0, QUESTION_TIME - Math.floor((Date.now()-new Date(room.question_started_at).getTime())/1000)); }
+  return Math.max(0, QUESTION_TIME-Math.floor((Date.now()-new Date(room.question_started_at).getTime())/1000)); }
+function sbInit(){ sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY); return sb; }
+function qImg(q){ return q.image_url?`<img class="qimg" src="${esc(q.image_url)}" alt="Hình minh họa" onerror="this.style.display='none'">`:""; }
+function typeTag(q){ return q.type==="truefalse"?'<span class="tag">Đúng/Sai</span>':'<span class="tag">Trắc nghiệm</span>'; }
 
 /* ================= MÀN HÌNH CHUNG ================= */
 function showHome(){
@@ -181,307 +189,521 @@ function showHome(){
   app.innerHTML=`<div class="card">
     <h1>🎯 Trắc nghiệm trực tiếp</h1>
     <p class="sub">Chơi cùng cả lớp theo thời gian thực — kiểu Kahoot!</p>
-    <button class="btn big green" onclick="SFX.click();showTeacherStart()">👨‍🏫 Giáo viên<br><small style="font-weight:400">Tạo phòng mới</small></button>
+    <button class="btn big green" onclick="SFX.click();showTeacher()">👨‍🏫 Giáo viên<br><small style="font-weight:400">Tạo phòng • Ngân hàng đề • AI</small></button>
     <button class="btn big orange" onclick="SFX.click();showStudentJoin()">🎒 Học sinh<br><small style="font-weight:400">Vào phòng bằng mã PIN</small></button>
     <p class="note">Thầy mở trang này trên máy chiếu • Trò mở cùng địa chỉ này trên máy mình</p>
   </div>`;
 }
+
+/* ================= GIÁO VIÊN: MENU ================= */
+function showTeacher(){
+  sbInit(); mode="teacher";
+  app.innerHTML=`<div class="card">
+    <h2>👨‍🏫 Khu vực giáo viên</h2>
+    <div class="tabs">
+      <button class="tab on" id="tabRoom" onclick="SFX.click();tTab('room')">🚀 Tạo phòng</button>
+      <button class="tab" id="tabBank" onclick="SFX.click();tTab('bank')">📚 Ngân hàng câu hỏi</button>
+      <button class="tab" id="tabAI" onclick="SFX.click();tTab('ai')">🤖 AI tạo câu hỏi</button>
+    </div>
+    <div id="tBody"><span class="spin"></span> Đang tải...</div>
+  </div>`;
+  tTab("room");
+}
+async function tTab(which){
+  const ids={room:"tabRoom",bank:"tabBank",ai:"tabAI"};
+  Object.entries(ids).forEach(([t,id])=>document.getElementById(id).classList.toggle("on",t===which));
+  if(which==="room") return tRoomTab();
+  if(which==="bank") return tBankTab();
+  return tAITab();
+}
+async function loadBank(){
+  try{
+    const {data,error}=await sb.from("question_bank").select("*").order("created_at",{ascending:true});
+    if(error) throw error;
+    bank=data||[];
+    if(!bank.length){ // tự gieo bộ đề mẫu nếu ngân hàng trống
+      for(const [nm,qs] of Object.entries(FALLBACK_SET))
+        await sb.from("question_bank").insert({set_name:nm,questions:qs});
+      const r=await sb.from("question_bank").select("*").order("created_at",{ascending:true});
+      bank=r.data||[];
+    }
+  }catch(e){ bankReadOnly=true; bank=Object.entries(FALLBACK_SET).map(([set_name,questions],i)=>({id:"fb"+i,set_name,questions})); }
+}
+function tRoomTab(){
+  loadBank().then(()=>{
+    const sets=bank.map(s=>`<option value="${s.id}">${esc(s.set_name)} (${s.questions.length} câu)</option>`).join("");
+    document.getElementById("tBody").innerHTML=`
+      <p class="sub">Chọn bộ đề rồi tạo phòng — mã PIN hiện thật to để cả lớp nhập.</p>
+      <p><select id="setSel">${sets}</select></p>
+      <button class="btn big green" onclick="tCreateRoom()">🚀 Tạo phòng</button><br>
+      <button class="btn small" onclick="showTeacherRejoin()">🔑 Vào lại phòng cũ bằng PIN</button>`;
+  });
+}
 </script>
 
 <script>
-/* ================= GIÁO VIÊN ================= */
-function showTeacherStart(){
-  if(!configured()){ app.innerHTML=cfgWarn(); return; }
-  mode="teacher";
-  const sets=Object.keys(QUESTION_SETS).map(k=>`<option value="${esc(k)}">${esc(k)} (${QUESTION_SETS[k].length} câu)</option>`).join("");
-  app.innerHTML=`<div class="card">
-    <h2>👨‍🏫 Tạo phòng chơi mới</h2>
-    <p class="sub">Chọn bộ đề rồi bấm tạo phòng — mã PIN sẽ hiện thật to để cả lớp nhập.</p>
-    <p><select id="setSel">${sets}</select></p>
-    <button class="btn big green" onclick="tCreateRoom()">🚀 Tạo phòng</button><br>
-    <button class="btn" onclick="showTeacherRejoin()">🔑 Vào lại phòng cũ bằng PIN</button>
-  </div>`;
+/* ================= NGÂN HÀNG CÂU HỎI ================= */
+function tBankTab(){
+  loadBank().then(()=>{
+    const items=bank.map(s=>`<div class="bankitem"><div><b>${esc(s.set_name)}</b><br><span class="note">${s.questions.length} câu hỏi</span></div>
+      <div><button class="btn small" onclick="tSetDetail('${s.id}')">✏️ Sửa</button>
+      ${bankReadOnly?"":`<button class="btn small red" onclick="tDelSet('${s.id}')">🗑️</button>`}</div></div>`).join("");
+    document.getElementById("tBody").innerHTML=`
+      ${bankReadOnly?`<div class="cfgwarn">⚠️ Chưa kết nối được bảng ngân hàng (thầy chạy file <b>supabase-v2-migration.sql</b> trong SQL Editor rồi tải lại trang để bật chế độ đầy đủ).</div>`:""}
+      <div style="text-align:left;max-width:640px;margin:0 auto">${items||'<p class="note">Chưa có bộ đề nào.</p>'}</div>
+      ${bankReadOnly?"":`<button class="btn green" onclick="tNewSet()">➕ Tạo bộ đề mới</button>`}
+      <p class="note">Bộ đề lưu trên Supabase — dùng máy nào cũng thấy.</p>`;
+  });
+}
+async function tNewSet(){
+  if(bankReadOnly){ alert("Thầy chạy file supabase-v2-migration.sql trong SQL Editor trước nhé!"); return; }
+  const nm=prompt("Tên bộ đề mới:"); if(!nm) return;
+  const {data}=await sb.from("question_bank").insert({set_name:nm,questions:[]}).select().single();
+  if(data){ bank.push(data); tSetDetail(data.id); }
+  else alert("Không lưu được. Kiểm tra mạng nhé thầy!");
+}
+async function tDelSet(id){
+  const s=bank.find(x=>x.id===id);
+  if(!confirm(`Xóa bộ đề "${s?s.set_name:""}"?`)) return;
+  if(!String(id).startsWith("fb")) await sb.from("question_bank").delete().eq("id",id);
+  bank=bank.filter(x=>x.id!==id); tBankTab();
+}
+function tSetDetail(id){
+  const s=bank.find(x=>x.id===id); if(!s) return;
+  const rows=s.questions.map((q,i)=>`<div class="qrow">${typeTag(q)}<b>Câu ${i+1}:</b> ${esc(q.q)}
+    ${bankReadOnly?"":`<div style="margin-top:8px"><button class="btn small" onclick="tQForm('${id}',${i})">✏️ Sửa</button>
+    <button class="btn small red" onclick="tQDel('${id}',${i})">🗑️ Xóa</button></div>`}</div>`).join("");
+  document.getElementById("tBody").innerHTML=`
+    <h3>📚 ${esc(s.set_name)} (${s.questions.length} câu)</h3>
+    <div style="text-align:left;max-width:640px;margin:0 auto">${rows||'<p class="note">Chưa có câu hỏi nào.</p>'}</div>
+    ${bankReadOnly?"":`<button class="btn green" onclick="tQForm('${id}',-1)">➕ Thêm câu hỏi</button>`}
+    <button class="btn" onclick="tBankTab()">← Về danh sách</button>`;
+}
+function tQDel(sid,i){
+  const s=bank.find(x=>x.id===sid);
+  if(!confirm("Xóa câu hỏi này?")) return;
+  s.questions.splice(i,1); tQSave(sid);
+}
+async function tQSave(sid){
+  const s=bank.find(x=>x.id===sid);
+  if(!String(sid).startsWith("fb")) await sb.from("question_bank").update({questions:s.questions}).eq("id",sid);
+  tSetDetail(sid);
+}
+function tQForm(sid,i){
+  const s=bank.find(x=>x.id===sid);
+  const q=i>=0?s.questions[i]:{type:"choice",q:"",options:["","","",""],correct:0,explain:"",image_url:""};
+  editingQ={sid,i};
+  const optInputs=q.options.map((t,j)=>`<input type="text" id="opt${j}" placeholder="Đáp án ${j+1}" value="${esc(t)}">`).join("");
+  document.getElementById("tBody").innerHTML=`
+    <h3>${i>=0?"✏️ Sửa câu hỏi":"➕ Thêm câu hỏi"} — ${esc(s.set_name)}</h3>
+    <div style="text-align:left;max-width:640px;margin:0 auto">
+      <label><b>Dạng câu hỏi:</b></label><br>
+      <select id="qType" onchange="tQTypeChange()">
+        <option value="choice" ${q.type!=="truefalse"?"selected":""}>Trắc nghiệm 4 đáp án</option>
+        <option value="truefalse" ${q.type==="truefalse"?"selected":""}>Đúng / Sai</option>
+      </select><br>
+      <label><b>Câu hỏi:</b></label>
+      <textarea id="qText" placeholder="Nhập câu hỏi...">${esc(q.q)}</textarea><br>
+      <div id="optBox"><label><b>Các đáp án:</b></label><br>${optInputs}</div>
+      <label><b>Đáp án đúng (số thứ tự, bắt đầu từ 1):</b></label><br>
+      <input type="text" id="qCorrect" inputmode="numeric" value="${(q.correct??0)+1}" style="max-width:120px"><br>
+      <label><b>Giải thích (hiện sau khi chốt đáp án):</b></label>
+      <textarea id="qExplain" placeholder="Giải thích...">${esc(q.explain||"")}</textarea><br>
+      <label><b>Link hình minh họa (không bắt buộc):</b></label><br>
+      <input type="text" id="qImg" placeholder="https://..." value="${esc(q.image_url||"")}"><br>
+      <span class="note">💡 Muốn có ảnh minh họa đẹp? Gửi ý tưởng vào chat với trợ lý, em vẽ rồi đưa link cho thầy dán vào đây.</span><br><br>
+      <button class="btn big green" onclick="tQSubmit()">💾 Lưu câu hỏi</button>
+      <button class="btn" onclick="tSetDetail('${sid}')">Hủy</button>
+    </div>`;
+}
+function tQTypeChange(){
+  const t=document.getElementById("qType").value;
+  document.getElementById("optBox").innerHTML = t==="truefalse"
+    ? `<label><b>Các đáp án:</b></label><br><p class="note">Dạng Đúng/Sai dùng sẵn 2 đáp án: <b>1. Đúng</b> — <b>2. Sai</b></p>`
+    : `<label><b>Các đáp án:</b></label><br>`+[0,1,2,3].map(j=>`<input type="text" id="opt${j}" placeholder="Đáp án ${j+1}">`).join("");
+}
+function tQSubmit(){
+  const {sid,i}=editingQ;
+  const s=bank.find(x=>x.id===sid);
+  const type=document.getElementById("qType").value;
+  const qText=document.getElementById("qText").value.trim();
+  if(!qText){ alert("Thầy nhập câu hỏi đã nhé!"); return; }
+  let options, correct;
+  if(type==="truefalse"){ options=["Đúng","Sai"]; correct=parseInt(document.getElementById("qCorrect").value)-1; }
+  else{
+    options=[0,1,2,3].map(j=>document.getElementById("opt"+j).value.trim());
+    if(options.some(o=>!o)){ alert("Thầy nhập đủ 4 đáp án nhé!"); return; }
+    correct=parseInt(document.getElementById("qCorrect").value)-1;
+  }
+  if(!(correct>=0&&correct<options.length)){ alert("Số thứ tự đáp án đúng chưa hợp lệ!"); return; }
+  const q={type,q:qText,options,correct,explain:document.getElementById("qExplain").value.trim(),image_url:document.getElementById("qImg").value.trim()};
+  if(i>=0) s.questions[i]=q; else s.questions.push(q);
+  SFX.correct(); tQSave(sid);
+}
+</script>
+
+<script>
+/* ================= 🤖 AI TẠO CÂU HỎI (Gemini) ================= */
+function tAITab(){
+  const key=localStorage.getItem("gemini_key")||"";
+  document.getElementById("tBody").innerHTML=`
+    <div style="text-align:left;max-width:640px;margin:0 auto">
+      <div class="aimsg">🤖 <b>Trợ lý AI tạo câu hỏi.</b> Thầy nhập ý tưởng (ví dụ: <i>"an toàn khi dùng mạng xã hội, lớp 4, 5 câu"</i>),
+      AI sẽ sinh câu hỏi trắc nghiệm + đúng/sai kèm giải thích. Thầy duyệt rồi lưu vào ngân hàng.<br><br>
+      🔑 Cần <b>Gemini API key miễn phí</b> (lấy 1 lần tại <b>aistudio.google.com/apikey</b>), dán vào ô dưới — key chỉ lưu trên máy thầy.</div>
+      <label><b>Gemini API key:</b></label><br>
+      <input type="password" id="gKey" placeholder="Dán key vào đây..." value="${esc(key)}"><br>
+      <label><b>Ý tưởng / chủ đề:</b></label>
+      <textarea id="gIdea" placeholder="VD: Ôn tập về thông tin trên trang web cho học sinh lớp 4, gồm siêu liên kết, bộ lọc 3 Có, thông tin riêng tư"></textarea><br>
+      <label><b>Số câu:</b></label><br>
+      <select id="gCount" style="max-width:160px"><option>3</option><option selected>5</option><option>10</option></select><br>
+      <button class="btn big purple" id="gBtn" onclick="aiGenerate()">✨ Sinh câu hỏi</button>
+      <div id="gOut" style="margin-top:12px"></div>
+    </div>`;
+}
+async function aiGenerate(){
+  const key=document.getElementById("gKey").value.trim();
+  const idea=document.getElementById("gIdea").value.trim();
+  const n=document.getElementById("gCount").value;
+  if(!key){ alert("Thầy dán Gemini API key vào trước nhé!"); return; }
+  if(!idea){ alert("Thầy nhập ý tưởng/chủ đề đã nhé!"); return; }
+  localStorage.setItem("gemini_key",key);
+  const out=document.getElementById("gOut"), btn=document.getElementById("gBtn");
+  btn.disabled=true; out.innerHTML=`<p><span class="spin"></span> AI đang soạn ${n} câu hỏi...</p>`;
+  const prompt=`Bạn là trợ lý soạn câu hỏi trắc nghiệm cho giáo viên tiểu học Việt Nam.
+Dựa vào ý tưởng sau, hãy tạo đúng ${n} câu hỏi cho học sinh tiểu học (tiếng Việt đơn giản, mỗi câu có 1 đáp án đúng duy nhất).
+Ý tưởng: ${idea}
+Mỗi câu thuộc 1 trong 2 dạng:
+- "choice": trắc nghiệm 4 đáp án (đáp án nhiễu phải hợp lý, dễ nhầm).
+- "truefalse": câu đúng/sai (options luôn là ["Đúng","Sai"]).
+Với mỗi câu, đề xuất thêm "image_prompt" (tiếng Anh, ngắn gọn) để vẽ ảnh minh họa KHÔNG có chữ.
+Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải thích:
+{"questions":[{"type":"choice","q":"...","options":["...","...","...","..."],"correct":2,"explain":"...","image_prompt":"..."},{"type":"truefalse","q":"...","options":["Đúng","Sai"],"correct":0,"explain":"...","image_prompt":"..."}]}`;
+  try{
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
+      {method:"POST",headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})});
+    const j=await r.json();
+    if(!r.ok) throw new Error(j.error&&j.error.message?j.error.message:("Lỗi "+r.status));
+    let txt=j.candidates[0].content.parts.map(p=>p.text||"").join("");
+    txt=txt.replace(/```json|```/g,"").trim();
+    const data=JSON.parse(txt);
+    aiResult=(data.questions||[]).map(x=>({type:x.type==="truefalse"?"truefalse":"choice",
+      q:String(x.q||""), options:Array.isArray(x.options)&&x.options.length?x.options.map(String):["Đúng","Sai"],
+      correct:Math.max(0,parseInt(x.correct)||0), explain:String(x.explain||""), image_url:"",
+      image_prompt:String(x.image_prompt||""), keep:true})).filter(x=>x.q);
+    if(!aiResult.length) throw new Error("AI không trả về câu hỏi nào.");
+    SFX.correct(); aiPreview();
+  }catch(e){ out.innerHTML=`<div class="cfgwarn">⚠️ ${esc(e.message)}<br><span class="note">Kiểm tra lại API key và mạng rồi thử lại nhé thầy.</span></div>`; }
+  btn.disabled=false;
+}
+function aiPreview(){
+  const out=document.getElementById("gOut");
+  const rows=aiResult.map((q,i)=>`<label><input type="checkbox" ${q.keep?"checked":""} onchange="aiResult[${i}].keep=this.checked" style="width:20px;height:20px">
+    ${typeTag(q)} <b>Câu ${i+1}:</b> ${esc(q.q)}<br>
+    <span class="note">${q.options.map((o,j)=>`${j===q.correct?"✅":"▫️"} ${esc(o)}`).join(" &nbsp; ")}</span>
+    ${q.image_prompt?`<span class="imgprompt">🎨 Gợi ý ảnh: ${esc(q.image_prompt)} <br>→ Gửi prompt này vào chat với trợ lý để vẽ ảnh minh họa.</span>`:""}
+  </label>`).join("");
+  const setOpts=bank.map(s=>`<option value="${s.id}">${esc(s.set_name)}</option>`).join("");
+  out.innerHTML=`<div class="aiprev"><h3>👀 Thầy duyệt câu hỏi (${aiResult.length} câu):</h3>${rows}
+    <label><b>Lưu vào bộ đề:</b></label><br>
+    <select id="aiSet">${setOpts}<option value="__new">➕ Tạo bộ đề mới...</option></select>
+    <input type="text" id="aiNewName" placeholder="Tên bộ đề mới..." style="display:none"><br>
+    <button class="btn big green" onclick="aiSave()">💾 Lưu các câu đã tick</button></div>`;
+  document.getElementById("aiSet").onchange=e=>{
+    document.getElementById("aiNewName").style.display=e.target.value==="__new"?"block":"none"; };
+}
+async function aiSave(){
+  if(bankReadOnly){ alert("Thầy chạy file supabase-v2-migration.sql trong SQL Editor trước nhé!"); return; }
+  const kept=aiResult.filter(q=>q.keep).map(({keep,image_prompt,...rest})=>rest);
+  if(!kept.length){ alert("Thầy tick chọn ít nhất 1 câu nhé!"); return; }
+  let sid=document.getElementById("aiSet").value;
+  if(sid==="__new"){
+    const nm=document.getElementById("aiNewName").value.trim()||"Bộ đề AI "+new Date().toLocaleDateString("vi-VN");
+    const {data}=await sb.from("question_bank").insert({set_name:nm,questions:[]}).select().single();
+    if(!data){ alert("Không lưu được. Kiểm tra mạng nhé thầy!"); return; }
+    bank.push(data); sid=data.id;
+  }
+  const s=bank.find(x=>x.id===sid);
+  s.questions=s.questions.concat(kept);
+  if(!String(sid).startsWith("fb")) await sb.from("question_bank").update({questions:s.questions}).eq("id",sid);
+  SFX.fanfare(); fireworks(5);
+  document.getElementById("gOut").innerHTML=`<div class="aimsg">✅ Đã lưu ${kept.length} câu vào bộ đề <b>${esc(s.set_name)}</b>!</div>`;
+}
+</script>
+
+<script>
+/* ================= GIÁO VIÊN: ĐIỀU KHIỂN PHÒNG ================= */
+let lockedOnce=false;
+function unsubAll(){ [channel,channel2].forEach(c=>{try{c&&c.unsubscribe()}catch(e){}}); channel=channel2=null; if(timerInt){clearInterval(timerInt);timerInt=null;} }
+async function tCreateRoom(){
+  SFX.click();
+  const sid=document.getElementById("setSel").value;
+  const s=bank.find(x=>x.id===sid);
+  if(!s||!s.questions.length){ alert("Bộ đề này chưa có câu hỏi. Thầy thêm trong tab Ngân hàng nhé!"); return; }
+  unsubAll();
+  let pin="";
+  for(let t=0;t<20;t++){ pin=String(Math.floor(100000+Math.random()*900000));
+    const {data}=await sb.from("rooms").select("id").eq("pin",pin).limit(1);
+    if(!data||!data.length) break; }
+  const {data,error}=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:s.questions}).select().single();
+  if(error){ alert("Lỗi tạo phòng: "+error.message); return; }
+  room=data; players=[]; answers=[]; lockedOnce=false;
+  SFX.join(); tLobby();
 }
 function showTeacherRejoin(){
-  app.innerHTML=`<div class="card"><h2>🔑 Vào lại phòng</h2>
-    <p class="sub">Nhập mã PIN của phòng đã tạo trước đó (khi thầy tải lại trang giữa giờ).</p>
-    <input type="text" id="pinIn" maxlength="6" placeholder="123456" inputmode="numeric"><br>
-    <button class="btn big green" onclick="tRejoin()">Vào phòng</button></div>`;
+  app.innerHTML=`<div class="card"><h2>🔑 Vào lại phòng cũ</h2>
+    <input type="text" id="rePin" inputmode="numeric" placeholder="Nhập PIN..." maxlength="6">
+    <br><button class="btn big green" onclick="tRejoin()">Vào phòng</button>
+    <button class="btn" onclick="showTeacher()">← Quay lại</button></div>`;
 }
 async function tRejoin(){
-  sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
-  const pin=document.getElementById("pinIn").value.trim();
-  const {data,error}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  if(error||!data){ alert("Không tìm thấy phòng với PIN này!"); return; }
-  room=data; mode="teacher"; subscribeTeacher(); renderTeacher();
-}
-async function tCreateRoom(){
-  sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
-  const pin=String(Math.floor(100000+Math.random()*900000));
-  const setName=document.getElementById("setSel").value;
-  const {data,error}=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:QUESTION_SETS[setName]}).select().single();
-  if(error){ alert("Lỗi tạo phòng: "+error.message); return; }
-  room=data; SFX.join(); subscribeTeacher(); renderTeacher();
-}
-function subscribeTeacher(){
-  if(channel) sb.removeChannel(channel);
-  players=[]; answers=[];
-  channel=sb.channel("t-"+room.id)
-    .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`room_id=eq.${room.id}`},p=>{
-      if(p.eventType==="INSERT"){ players.push(p.new); SFX.join(); }
-      if(p.eventType==="DELETE"){ players=players.filter(x=>x.id!==p.old.id); }
-      renderTeacher();
-    })
-    .on("postgres_changes",{event:"*",schema:"public",table:"answers",filter:`room_id=eq.${room.id}`},p=>{
-      if(p.eventType==="INSERT"&&p.new.q_index===room.current){ answers.push(p.new); SFX.tick(); }
-      renderTeacher();
-    })
-    .on("postgres_changes",{event:"*",schema:"public",table:"rooms",filter:`id=eq.${room.id}`},p=>{
-      room=p.new; renderTeacher();
-    })
-    .subscribe();
-  sb.from("players").select("*").eq("room_id",room.id).then(r=>{ players=r.data||[]; renderTeacher(); });
-}
-async function tStart(){
-  SFX.click(); locking=false;
-  await sb.from("rooms").update({phase:"question",current:0,question_started_at:new Date().toISOString()}).eq("id",room.id);
-}
-async function tLock(){ if(locking) return; locking=true; SFX.click(); await sb.from("rooms").update({phase:"reveal"}).eq("id",room.id); await tScore(); }
-async function tNext(){
-  SFX.click(); locking=false;
-  const n=room.question_set.length;
-  if(room.current+1<n) await sb.from("rooms").update({phase:"question",current:room.current+1,question_started_at:new Date().toISOString()}).eq("id",room.id);
-  else { await sb.from("rooms").update({phase:"podium"}).eq("id",room.id); }
-}
-async function tScore(){
-  // Cộng điểm: đúng = 100 + thưởng tốc độ (nhanh nhất +50, giảm dần)
-  const {data}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",room.current).eq("is_correct",true).order("ms",{ascending:true});
-  for(let i=0;i<(data||[]).length;i++){
-    const a=data[i], pts=100+Math.max(0,50-i*5);
-    const pl=players.find(x=>x.id===a.player_id);
-    if(pl){ const ns=pl.score+pts; await sb.from("players").update({score:ns}).eq("id",pl.id); pl.score=ns; }
-  }
-  const {data:all}=await sb.from("players").select("*").eq("room_id",room.id).order("score",{ascending:false});
-  if(all) players=all;
-  renderTeacher();
-}
-function tKick(id){ if(confirm("Xóa học sinh này khỏi phòng?")) sb.from("players").delete().eq("id",id); }
-
-function renderTeacher(){
-  if(mode!=="teacher"||!room) return;
-  clearInterval(timerInt);
-  if(room.phase==="lobby") return tLobby();
-  if(room.phase==="question") return tQuestion();
-  if(room.phase==="reveal") return tReveal();
-  if(room.phase==="podium") return tPodium();
+  const pin=document.getElementById("rePin").value.trim();
+  const {data}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1);
+  if(!data||!data.length){ alert("Không tìm thấy phòng với PIN này!"); return; }
+  unsubAll(); room=data[0]; lockedOnce=false;
+  const {data:pl}=await sb.from("players").select("*").eq("room_id",room.id).order("created_at");
+  players=pl||[];
+  if(room.phase==="lobby") tLobby();
+  else if(room.phase==="question") tQuestion();
+  else if(room.phase==="reveal") tShowReveal();
+  else tPodium();
 }
 function tLobby(){
-  const list=players.map(p=>`<span class="pname">${esc(p.name)} <a href="#" onclick="event.preventDefault();tKick('${p.id}')" title="Xóa">✖</a></span>`).join("")||`<p class="note">Chờ học sinh vào bằng mã PIN...</p>`;
   app.innerHTML=`<div class="card">
-    <h2>📢 Cả lớp nhập mã PIN này:</h2>
-    <div class="pin">${room.pin}</div>
-    <p class="sub">Đã vào: <b>${players.length}</b> bạn</p>
-    <div class="plist">${list}</div>
-    <button class="btn big green" ${players.length?"":"disabled"} onclick="tStart()">▶ Bắt đầu (${room.question_set.length} câu)</button>
-    <p class="note">Mỗi câu có ${QUESTION_TIME} giây • Đúng = 100 điểm + thưởng tốc độ</p>
+    <h2>🔑 Mã PIN phòng</h2><div class="pin">${room.pin}</div>
+    <p class="sub">Học sinh mở <b>${esc(location.host+location.pathname)}</b> rồi nhập PIN này</p>
+    <h3>🎒 Đã vào: <span id="pcount">0</span> bạn</h3>
+    <div class="plist" id="plist"></div><br>
+    <button class="btn big green" id="startBtn" onclick="tStartQ()" disabled>▶ Bắt đầu (chờ học sinh...)</button>
   </div>`;
+  const render=async()=>{
+    const {data}=await sb.from("players").select("*").eq("room_id",room.id).order("created_at");
+    players=data||[];
+    const pl=document.getElementById("plist"); if(pl) pl.innerHTML=players.map(p=>`<span class="pname">${esc(p.name)}</span>`).join("");
+    const pc=document.getElementById("pcount"); if(pc) pc.textContent=players.length;
+    const b=document.getElementById("startBtn"); if(b){ b.disabled=!players.length; b.innerHTML=players.length?"▶ Bắt đầu!":"▶ Bắt đầu (chờ học sinh...)"; }
+  };
+  render();
+  channel2=sb.channel("tpl-"+room.id)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"players",filter:"room_id=eq."+room.id},()=>{ render(); SFX.join(); })
+    .subscribe();
+}
+async function tStartQ(){
+  SFX.click(); unsubAll();
+  await sb.from("rooms").update({phase:"question",current:0,question_started_at:new Date().toISOString()}).eq("id",room.id);
+  room.phase="question"; room.current=0; room.question_started_at=new Date().toISOString();
+  tQuestion();
 }
 function tQuestion(){
   const q=qNow(); if(!q) return;
-  answers=answers.filter(a=>a.q_index===room.current);
-  const names=q.options.map((t,i)=>["🟥","🟦","🟨","🟩"][i]+" "+esc(t)).join("<br>");
-  lastTick=99;
-  timerInt=setInterval(()=>{ const r=remain();
-    const el=document.getElementById("tTimer");
-    if(el){ el.textContent=r; el.classList.toggle("warn",r<=5); }
-    if(r!==lastTick){ lastTick=r; if(r<=5&&r>0)SFX.count(); }
-    if(r<=0){ clearInterval(timerInt); tLock(); }
-  },250);
+  const idx=room.current, total=room.question_set.length;
+  const letters=["A","B","C","D"];
   app.innerHTML=`<div class="card">
-    <div class="timer" id="tTimer">${remain()}</div>
-    <div class="qtext">Câu ${room.current+1}/${room.question_set.length}: ${esc(q.q)}</div>
-    <div style="font-size:1.15rem;text-align:left">${names}</div>
-    <p class="sub">Đã trả lời: <b id="ansCount">${answers.length}</b>/${players.length} bạn</p>
-    <button class="btn big red" onclick="tLock()">🔒 Chốt đáp án</button>
+    <div class="note">Câu ${idx+1}/${total} ${q.type==="truefalse"?"• Dạng Đúng/Sai":""}</div>
+    <div class="timer" id="tmr">${QUESTION_TIME}</div>
+    <div class="qtext">${esc(q.q)}</div>${qImg(q)}
+    <div class="opts">${q.options.map((o,i)=>`<div class="opt dim">${letters[i]||"•"}. ${esc(o)}</div>`).join("")}</div>
+    <p class="sub">✅ Đã trả lời: <b id="acount">0</b> / ${players.length} bạn</p>
+    <button class="btn big red" onclick="tLock()">⏹ Chốt đáp án</button>
+  </div>`;
+  lastTick=99; locking=false;
+  if(timerInt) clearInterval(timerInt);
+  timerInt=setInterval(()=>{ const r=remain(); const e=document.getElementById("tmr");
+    if(e){ e.textContent=r; e.classList.toggle("warn",r<=5); }
+    if(r<=5&&r!==lastTick&&r>0){ lastTick=r; SFX.count(); }
+    if(r<=0&&!locking){ locking=true; tLock(); }
+  },250);
+  channel2=sb.channel("tans-"+room.id+"-"+idx)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"answers",filter:"room_id=eq."+room.id},async()=>{
+      const {count}=await sb.from("answers").select("id",{count:"exact",head:true}).eq("room_id",room.id).eq("q_index",idx);
+      const e=document.getElementById("acount"); if(e) e.textContent=count||0;
+    }).subscribe();
+}
+async function tLock(){
+  if(lockedOnce) return; lockedOnce=true;
+  if(timerInt){ clearInterval(timerInt); timerInt=null; }
+  SFX.click();
+  const idx=room.current, q=qNow();
+  const {data:ans}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",idx);
+  answers=ans||[];
+  const pmap={}; players.forEach(p=>pmap[p.id]=p);
+  for(const a of answers){
+    if(a.is_correct&&pmap[a.player_id]){
+      const bonus=Math.max(0,Math.round(50*(1-a.ms/(QUESTION_TIME*1000))));
+      pmap[a.player_id].score+=100+bonus;
+    }
+  }
+  for(const p of players) await sb.from("players").update({score:p.score}).eq("id",p.id);
+  await sb.from("rooms").update({phase:"reveal"}).eq("id",room.id);
+  room.phase="reveal";
+  tShowReveal();
+}
+async function tShowReveal(){
+  const q=qNow(); if(!q) return;
+  const idx=room.current;
+  try{
+    const {data}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",idx);
+    answers=data||[];
+  }catch(e){}
+  const total=room.question_set.length;
+  const counts=q.options.map((_,i)=>answers.filter(a=>a.option_index===i).length);
+  const maxC=Math.max(1,...counts);
+  const letters=["A","B","C","D"], last=idx>=total-1;
+  app.innerHTML=`<div class="card">
+    <div class="note">Câu ${idx+1}/${total} — Kết quả (${answers.length} bạn đã trả lời)</div>
+    <div class="qtext">${esc(q.q)}</div>${qImg(q)}
+    <div class="opts">${q.options.map((o,i)=>`<div class="opt ${i===q.correct?"correct":""}">${i===q.correct?"✅":"▫️"} ${letters[i]||"•"}. ${esc(o)}</div>`).join("")}</div>
+    <h3>📊 Cả lớp đã chọn</h3>
+    ${q.options.map((o,i)=>`<div class="bar ${i===q.correct?"right":""}"><div style="width:${Math.max(8,Math.round(counts[i]/maxC*100))}%">${letters[i]||"•"}: ${counts[i]}</div></div>`).join("")}
+    ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
+    <h3>🏅 Bảng điểm</h3>${scoreTable()}
+    <button class="btn big green" onclick="tNext()">${last?"🏁 Xem vinh danh":"Câu tiếp theo ➡"}</button>
   </div>`;
 }
-function tReveal(){
-  const q=qNow(); if(!q) return;
-  const counts=[0,0,0,0]; answers.forEach(a=>{ if(a.q_index===room.current) counts[a.option_index]++; });
-  const total=Math.max(1,answers.length);
-  const bars=q.options.map((t,i)=>{
-    const pct=Math.round(counts[i]/total*100), right=i===q.correct;
-    return `<div class="bar ${right?"right":""}"><div style="width:${Math.max(pct,8)}%">${["🟥","🟦","🟨","🟩"][i]} ${esc(t)} — ${counts[i]} (${pct}%)</div></div>`;
-  }).join("");
-  const board=[...players].sort((a,b)=>b.score-a.score).slice(0,5)
-    .map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td><b>${p.score}</b></td></tr>`).join("");
-  const last=room.current+1>=room.question_set.length;
-  app.innerHTML=`<div class="card">
-    <h2>${last?"🎬 Câu cuối cùng!":"📊 Kết quả câu "+(room.current+1)}</h2>
-    <div class="qtext">${esc(q.q)}</div>${bars}
-    <div class="explain">💡 ${esc(q.explain||"")}</div>
-    <h3>🏅 Top tạm thời</h3>
-    <table class="score"><tr><th>#</th><th>Tên</th><th>Điểm</th></tr>${board}</table>
-    <button class="btn big green" onclick="tNext()">${last?"🏆 Vinh danh":"➡ Câu tiếp theo"}</button>
-  </div>`;
+function scoreTable(){
+  const s=[...players].sort((a,b)=>b.score-a.score);
+  if(!s.length) return `<p class="note">Chưa có học sinh.</p>`;
+  return `<table class="score">${s.map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b></td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>`;
+}
+async function tNext(){
+  SFX.click(); lockedOnce=false;
+  const total=room.question_set.length;
+  if(room.current>=total-1){
+    await sb.from("rooms").update({phase:"podium"}).eq("id",room.id);
+    room.phase="podium"; tPodium();
+  }else{
+    const nx=room.current+1;
+    unsubAll();
+    await sb.from("rooms").update({phase:"question",current:nx,question_started_at:new Date().toISOString()}).eq("id",room.id);
+    room.current=nx; room.phase="question"; room.question_started_at=new Date().toISOString();
+    tQuestion();
+  }
 }
 function tPodium(){
-  clearInterval(timerInt);
-  const sorted=[...players].sort((a,b)=>b.score-a.score);
-  const top=sorted.slice(0,3), rest=sorted.slice(3);
-  const medals=["🥇","🥈","🥉"], cls=["s1","s2","s3"], order=[1,0,2];
-  const steps=order.map(i=>{ const p=top[i]; if(!p)return"";
-    return `<div class="step ${cls[i]}"><span class="medal">${medals[i]}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} điểm</span></div>`; }).join("");
-  const rows=rest.map((p,i)=>`<tr><td>${i+4}</td><td>${esc(p.name)}</td><td>${p.score}</td></tr>`).join("");
+  unsubAll();
+  const s=[...players].sort((a,b)=>b.score-a.score);
+  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
   app.innerHTML=`<div class="card">
-    <h1>🏆 Vinh danh 🏆</h1>
-    <div class="podium">${steps}</div>
-    ${rows?`<table class="score"><tr><th>#</th><th>Tên</th><th>Điểm</th></tr>${rows}</table>`:""}
-    <button class="btn big orange" onclick="tAgain()">🔁 Chơi lại từ đầu</button>
+    <h1>🏆 Vinh danh</h1>
+    <div class="podium">${step(s[1],"s2","🥈")}${step(s[0],"s1","🥇")}${step(s[2],"s3","🥉")}</div>
+    <h3>📋 Cả lớp</h3>${scoreTable()}
+    <button class="btn big" onclick="showTeacher()">🏠 Về trang giáo viên</button>
   </div>`;
   SFX.fanfare(); fireworks(8);
-}
-async function tAgain(){ SFX.click();
-  await sb.from("players").update({score:0}).eq("room_id",room.id);
-  await sb.from("answers").delete().eq("room_id",room.id);
-  await sb.from("rooms").update({phase:"lobby",current:0}).eq("id",room.id);
-  players.forEach(p=>p.score=0); answers=[];
 }
 </script>
 
 <script>
 /* ================= HỌC SINH ================= */
+let sCur=-1;
 function showStudentJoin(){
-  if(!configured()){ app.innerHTML=cfgWarn(); return; }
-  mode="student"; sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
-  app.innerHTML=`<div class="card">
-    <h2>🎒 Vào phòng chơi</h2>
-    <p class="sub">Nhập mã PIN thầy chiếu trên bảng:</p>
-    <input type="text" id="pinIn" maxlength="6" placeholder="Mã PIN" inputmode="numeric"><br><br>
-    <input type="text" id="nameIn" maxlength="20" placeholder="Tên của em"><br>
-    <button class="btn big orange" onclick="sJoin()">🚀 Vào phòng</button>
-  </div>`;
+  sbInit(); mode="student"; unsubAll();
+  app.innerHTML=`<div class="card"><h2>🎒 Học sinh vào phòng</h2>
+    <input type="text" id="jPin" inputmode="numeric" placeholder="Mã PIN..." maxlength="6">
+    <input type="text" id="jName" placeholder="Tên của em..." maxlength="24">
+    <br><button class="btn big orange" onclick="sJoin()">🚀 Vào phòng</button>
+    <p class="note">Hỏi thầy mã PIN đang hiện trên màn hình lớp nhé!</p></div>`;
 }
 async function sJoin(){
-  const pin=document.getElementById("pinIn").value.trim();
-  const name=document.getElementById("nameIn").value.trim();
+  const pin=document.getElementById("jPin").value.trim();
+  const name=document.getElementById("jName").value.trim();
   if(pin.length<4){ alert("Em nhập mã PIN nhé!"); return; }
   if(!name){ alert("Em nhập tên nhé!"); return; }
   SFX.click();
-  const {data:rm}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  if(!rm){ alert("Không tìm thấy phòng! Kiểm tra lại mã PIN nhé."); return; }
-  if(rm.phase!=="lobby"){ alert("Phòng đã bắt đầu rồi, hẹn em lần sau nhé!"); return; }
-  const {data:pl,error}=await sb.from("players").insert({room_id:rm.id,name}).select().single();
+  const {data}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1);
+  if(!data||!data.length){ alert("Không tìm thấy phòng! Kiểm tra lại PIN nhé."); return; }
+  room=data[0];
+  if(room.phase!=="lobby"){ alert("Phòng này đã bắt đầu rồi. Em chờ ván sau nhé!"); return; }
+  const {data:p,error}=await sb.from("players").insert({room_id:room.id,name}).select().single();
   if(error){ alert("Lỗi vào phòng: "+error.message); return; }
-  room=rm; myPlayer=pl; myAnswer=null; SFX.join(); subscribeStudent(); renderStudent();
+  myPlayer=p; sCur=-1; myAnswer=null; SFX.join();
+  subRoomStudent(); sLobby();
 }
-function subscribeStudent(){
-  if(channel) sb.removeChannel(channel);
-  channel=sb.channel("s-"+room.id+"-"+myPlayer.id)
-    .on("postgres_changes",{event:"*",schema:"public",table:"rooms",filter:`id=eq.${room.id}`},p=>{
-      const wasPhase=room.phase, wasQ=room.current;
-      room=p.new;
-      if(room.phase==="question"&&(wasPhase!=="question"||wasQ!==room.current)) myAnswer=null;
-      renderStudent();
-    })
-    .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`id=eq.${myPlayer.id}`},p=>{
-      if(p.eventType==="UPDATE") myPlayer=p.new;
-      renderStudent();
-    })
-    .subscribe();
-  sb.from("players").select("*").eq("room_id",room.id).then(r=>{ players=r.data||[]; });
-  sb.channel("s-pl-"+room.id)
-    .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`room_id=eq.${room.id}`},p=>{
-      if(p.eventType==="INSERT") players.push(p.new);
-      if(p.eventType==="UPDATE"){ const i=players.findIndex(x=>x.id===p.new.id); if(i>=0)players[i]=p.new; }
-      if(p.eventType==="DELETE") players=players.filter(x=>x.id!==p.old.id);
-      if(room&&(room.phase==="reveal"||room.phase==="podium")) renderStudent();
+function subRoomStudent(){
+  channel=sb.channel("sroom-"+room.id)
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"rooms",filter:"id=eq."+room.id},payload=>{
+      room=payload.new; onRoomChange();
     }).subscribe();
+  setTimeout(async()=>{ // đề phòng đổi pha trước khi kênh realtime kịp nối
+    const {data}=await sb.from("rooms").select("*").eq("id",room.id).single();
+    if(data&&(data.phase!==room.phase||data.current!==room.current)){ room=data; onRoomChange(); }
+  },2500);
 }
-async function sAnswer(i){
-  if(myAnswer!==null||!room||room.phase!=="question") return;
-  const q=qNow(); if(!q) return;
-  const ms=Date.now()-new Date(room.question_started_at).getTime();
-  myAnswer=i;
-  if(i===q.correct){ SFX.correct(); boom(window.innerWidth/2,200,40); } else SFX.wrong();
-  renderStudent();
-  await sb.from("answers").upsert(
-    {room_id:room.id,player_id:myPlayer.id,q_index:room.current,option_index:i,is_correct:i===q.correct,ms},
-    {onConflict:"room_id,player_id,q_index"});
+function onRoomChange(){
+  if(room.phase==="question"){
+    if(sCur!==room.current){ sCur=room.current; myAnswer=null; sQuestion(); }
+  }
+  else if(room.phase==="reveal"){ sReveal(); }
+  else if(room.phase==="podium"){ sPodium(); }
 }
-function renderStudent(){
-  if(mode!=="student"||!room) return;
-  clearInterval(timerInt);
-  if(room.phase==="lobby") return sWait();
-  if(room.phase==="question") return sQuestion();
-  if(room.phase==="reveal") return sReveal();
-  if(room.phase==="podium") return sPodium();
-}
-function sWait(){
-  app.innerHTML=`<div class="card">
-    <h2>👋 Chào ${esc(myPlayer.name)}!</h2>
-    <p class="sub">Em đã vào phòng <b>${room.pin}</b> rồi.<br>Ngồi ngay ngắn, chờ thầy bắt đầu nhé! ⏳</p>
-    <p style="font-size:3rem">😎📚✏️</p>
-  </div>`;
+function sLobby(){
+  app.innerHTML=`<div class="card"><h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
+    <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p><span class="spin"></span></div>`;
 }
 function sQuestion(){
   const q=qNow(); if(!q) return;
-  if(myAnswer!==null){
-    app.innerHTML=`<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ các bạn khác nhé...</p><div class="timer" id="sTimer">${remain()}</div></div>`;
-  } else {
-    const btns=q.options.map((t,i)=>`<button class="opt" onclick="sAnswer(${i})">${["🟥","🟦","🟨","🟩"][i]} ${esc(t)}</button>`).join("");
-    app.innerHTML=`<div class="card">
-      <div class="timer" id="sTimer">${remain()}</div>
-      <div class="qtext">${esc(q.q)}</div>
-      <div class="opts">${btns}</div>
-    </div>`;
-  }
-  lastTick=99;
-  timerInt=setInterval(()=>{ const r=remain();
-    const el=document.getElementById("sTimer");
-    if(el){ el.textContent=r; el.classList.toggle("warn",r<=5); }
-    if(r!==lastTick){ lastTick=r; if(r<=5&&r>0)SFX.count(); }
-    if(r<=0) clearInterval(timerInt);
-  },250);
-}
-function sReveal(){
-  const q=qNow(); if(!q) return;
-  const ok=myAnswer===q.correct;
-  const me=players.find(p=>p.id===myPlayer.id);
-  const sc=me?me.score:myPlayer.score;
-  const btns=q.options.map((t,i)=>{
-    const cls=i===q.correct?"correct":(i===myAnswer?"wrong picked":"dim");
-    return `<div class="opt ${cls}">${["🟥","🟦","🟨","🟩"][i]} ${esc(t)}</div>`;
-  }).join("");
+  const letters=["A","B","C","D"];
   app.innerHTML=`<div class="card">
-    <h2>${ok?"🎉 Đúng rồi!":"😅 Sai rồi!"}</h2>
-    <div class="qtext" style="font-size:1.2rem">${esc(q.q)}</div>
-    <div class="opts">${btns}</div>
-    <div class="explain">💡 ${esc(q.explain||"")}</div>
-    <p class="sub">Điểm của em: <b style="font-size:1.5rem">${sc}</b></p>
+    <div class="note">Câu ${room.current+1}/${room.question_set.length}</div>
+    <div class="timer" id="tmr">${QUESTION_TIME}</div>
+    <div class="qtext">${esc(q.q)}</div>${qImg(q)}
+    <div class="opts" id="sopts">${q.options.map((o,i)=>`<div class="opt" onclick="sAnswer(${i})">${letters[i]||"•"}. ${esc(o)}</div>`).join("")}</div>
   </div>`;
-  if(ok) fireworks(3);
+  if(timerInt) clearInterval(timerInt);
+  timerInt=setInterval(()=>{ const r=remain(); const e=document.getElementById("tmr");
+    if(e){ e.textContent=r; e.classList.toggle("warn",r<=5); } if(r<=0) clearInterval(timerInt); },250);
+}
+async function sAnswer(i){
+  if(myAnswer!==null) return;
+  myAnswer=i; SFX.click();
+  document.querySelectorAll("#sopts .opt").forEach((el,j)=>{ el.classList.toggle("picked",j===i); el.style.pointerEvents="none"; });
+  const q=qNow();
+  const ms=Math.max(0,Date.now()-new Date(room.question_started_at).getTime());
+  try{ await sb.from("answers").insert({room_id:room.id,player_id:myPlayer.id,q_index:room.current,option_index:i,is_correct:i===q.correct,ms}); }catch(e){}
+  if(timerInt) clearInterval(timerInt);
+  app.innerHTML=`<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ thầy chốt đáp án nhé...</p><span class="spin"></span></div>`;
+}
+async function sReveal(){
+  if(timerInt) clearInterval(timerInt);
+  const q=qNow(); if(!q) return;
+  const ok=myAnswer!==null&&myAnswer===q.correct;
+  const {data}=await sb.from("players").select("score").eq("id",myPlayer.id).single();
+  const sc=data?data.score:0;
+  const {data:all}=await sb.from("players").select("score").eq("room_id",room.id).order("score",{ascending:false});
+  const rank=(all||[]).filter(p=>p.score>sc).length+1;
+  if(ok){ SFX.correct(); boom(innerWidth/2,innerHeight/3,50); } else SFX.wrong();
+  app.innerHTML=`<div class="card">
+    <h2>${myAnswer===null?"⏰ Hết giờ!":ok?"🎉 Đúng rồi!":"😅 Chưa đúng"}</h2>
+    <div class="qtext" style="font-size:1.25rem">Đáp án đúng: <b>${esc(q.options[q.correct])}</b></div>
+    ${qImg(q)}
+    ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
+    <p class="sub">Điểm của em: <b>${sc}</b> • Xếp hạng: <b>${rank}</b></p>
+    <p class="note">Chờ câu tiếp theo...</p></div>`;
 }
 function sPodium(){
-  clearInterval(timerInt);
-  const sorted=[...players].sort((a,b)=>b.score-a.score);
-  const rank=sorted.findIndex(p=>p.id===myPlayer.id)+1;
-  const top=sorted.slice(0,3);
-  const medals=["🥇","🥈","🥉"], cls=["s1","s2","s3"], order=[1,0,2];
-  const steps=order.map(i=>{ const p=top[i]; if(!p)return"";
-    const me=p.id===myPlayer.id?"me":"";
-    return `<div class="step ${cls[i]}"><span class="medal">${medals[i]}</span><span class="nm">${esc(p.name)}${me?" (em!)":""}</span><span class="sc">${p.score} điểm</span></div>`; }).join("");
-  app.innerHTML=`<div class="card">
-    <h1>🏆 Kết quả 🏆</h1>
-    <div class="podium">${steps}</div>
-    <h2>${rank<=3?`🎊 Em đứng hạng ${rank}! Tuyệt vời!`:`Em đứng hạng ${rank} — cố gắng lần sau nhé! 💪`}</h2>
-    <p class="sub">Điểm của em: <b>${myPlayer.score}</b></p>
-  </div>`;
-  SFX.fanfare(); fireworks(8);
+  sb.from("players").select("*").eq("room_id",room.id).order("score",{ascending:false}).then(({data})=>{
+    const all=data||[];
+    const me=all.find(p=>p.id===myPlayer.id);
+    const rank=all.findIndex(p=>p.id===myPlayer.id)+1;
+    const medal=rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":"🎖️";
+    app.innerHTML=`<div class="card"><div style="font-size:4rem">${medal}</div>
+      <h2>${esc(myPlayer.name)} — hạng ${rank}</h2>
+      <p class="sub">Tổng điểm: <b>${me?me.score:0}</b></p>
+      <h3>🏅 Top 5</h3>
+      <table class="score">${all.slice(0,5).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b></td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>
+      <button class="btn big green" onclick="goHome()">🏠 Chơi ván mới</button></div>`;
+    SFX.fanfare(); fireworks(6);
+  });
 }
 
 /* ================= KHỞI ĐỘNG ================= */
-showHome();
+sbInit();
+if(CONFIG.SUPABASE_URL.includes("DÁN_URL")||CONFIG.SUPABASE_ANON_KEY.includes("DÁN_ANON")){
+  app.innerHTML=`<div class="card"><div class="cfgwarn">⚠️ Thầy chưa điền Supabase URL và anon key trong file index.html.<br>Mở file, tìm CONFIG ở đầu phần script và làm theo hướng dẫn nhé!</div></div>`;
+}else{
+  showHome();
+}
 </script>
 </body>
 </html>
