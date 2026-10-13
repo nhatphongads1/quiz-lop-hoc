@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Trắc nghiệm trực tiếp — Lớp học vui</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --bg1:#1a2a6c; --bg2:#b21f1f; --bg3:#fdbb2d; --card:#ffffff; --ink:#1f2d5a; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; font-family:"Segoe UI",system-ui,-apple-system,sans-serif; color:var(--ink);
+        background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3)); min-height:100vh; }
+  #fx{ position:fixed; inset:0; pointer-events:none; z-index:50; }
+  .wrap{ max-width:860px; margin:0 auto; padding:18px 14px 40px; }
+  .card{ background:var(--card); border-radius:22px; padding:26px 22px; box-shadow:0 12px 40px rgba(0,0,0,.35); text-align:center; }
+  h1{ font-size:2rem; margin:.2em 0; } h2{ font-size:1.5rem; margin:.3em 0; }
+  .sub{ color:#5a6b9c; margin:.2em 0 1em; }
+  .btn{ display:inline-block; border:none; cursor:pointer; font-weight:800; color:#fff;
+        background:linear-gradient(180deg,#4f7cff,#2b4fe0); padding:15px 30px; font-size:1.15rem;
+        border-radius:16px; margin:8px 6px; box-shadow:0 6px 0 #1c35a3; transition:transform .08s; }
+  .btn:active{ transform:translateY(4px); box-shadow:0 2px 0 #1c35a3; }
+  .btn.green{ background:linear-gradient(180deg,#37d67a,#1d9e52); box-shadow:0 6px 0 #146c39; }
+  .btn.green:active{ box-shadow:0 2px 0 #146c39; }
+  .btn.orange{ background:linear-gradient(180deg,#ffb340,#f08c00); box-shadow:0 6px 0 #a86200; }
+  .btn.orange:active{ box-shadow:0 2px 0 #a86200; }
+  .btn.red{ background:linear-gradient(180deg,#ff6b6b,#d63c3c); box-shadow:0 6px 0 #962626; }
+  .btn.red:active{ box-shadow:0 2px 0 #962626; }
+  .btn.big{ font-size:1.5rem; padding:20px 40px; }
+  .btn:disabled{ opacity:.45; cursor:default; }
+  input[type=text]{ font-size:1.3rem; padding:13px 16px; border-radius:14px; border:3px solid #c9d4f5;
+        width:100%; max-width:340px; text-align:center; outline:none; }
+  input[type=text]:focus{ border-color:#4f7cff; }
+  .pin{ font-size:4.2rem; font-weight:900; letter-spacing:.35em; color:#2b4fe0; margin:.1em 0;
+        text-indent:.35em; text-shadow:0 3px 0 #dbe4ff; }
+  .plist{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:14px 0; }
+  .pname{ background:#eef2ff; border:2px solid #c9d4f5; padding:8px 14px; border-radius:999px; font-weight:700; }
+  .qtext{ font-size:1.6rem; font-weight:800; margin:10px 0 16px; line-height:1.35; }
+  .opts{ display:grid; gap:12px; margin:10px 0; }
+  .opt{ font-size:1.25rem; font-weight:700; padding:16px; border-radius:16px; border:3px solid #c9d4f5;
+        background:#f6f8ff; cursor:pointer; transition:transform .08s; text-align:left; }
+  .opt:active{ transform:scale(.97); }
+  .opt.correct{ background:#d8ffe6; border-color:#1d9e52; }
+  .opt.wrong{ background:#ffe1e1; border-color:#d63c3c; }
+  .opt.dim{ opacity:.55; }
+  .opt.picked{ outline:4px solid #ffb340; }
+  .timer{ font-size:3rem; font-weight:900; color:#d63c3c; }
+  .timer.warn{ animation:blink .5s infinite alternate; }
+  @keyframes blink{ from{opacity:1} to{opacity:.35} }
+  .bar{ background:#eef2ff; border-radius:10px; overflow:hidden; margin:8px 0; text-align:left; }
+  .bar > div{ background:linear-gradient(90deg,#4f7cff,#37d67a); color:#fff; font-weight:800;
+        padding:8px 12px; border-radius:10px; white-space:nowrap; }
+  .bar.right > div{ background:linear-gradient(90deg,#37d67a,#1d9e52); }
+  table.score{ width:100%; border-collapse:collapse; margin:12px 0; font-size:1.05rem; }
+  table.score td, table.score th{ padding:10px 8px; border-bottom:2px solid #eef2ff; }
+  table.score tr.me td{ background:#fff7dd; font-weight:800; }
+  .podium{ display:flex; align-items:flex-end; justify-content:center; gap:14px; margin:22px 0 8px; }
+  .step{ border-radius:14px 14px 0 0; padding:14px 10px 10px; font-weight:900; color:#fff; min-width:110px; }
+  .step .medal{ font-size:2.6rem; display:block; }
+  .step .nm{ display:block; margin-top:6px; font-size:1.05rem; word-break:break-word; }
+  .step .sc{ display:block; font-size:.95rem; opacity:.95; }
+  .s1{ background:linear-gradient(180deg,#ffd94d,#e0a800); height:190px; box-shadow:0 -6px 24px #ffd94d; }
+  .s2{ background:linear-gradient(180deg,#cfd6e4,#8d99ae); height:150px; }
+  .s3{ background:linear-gradient(180deg,#f0a35e,#b5651d); height:120px; }
+  .explain{ background:#fff7dd; border:2px dashed #e0a800; border-radius:14px; padding:12px 16px; margin:12px 0; font-size:1.05rem; }
+  .toolbar{ position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center;
+        padding:8px 2px; color:#fff; font-weight:800; text-shadow:0 2px 4px rgba(0,0,0,.4); }
+  .toolbar button{ background:rgba(255,255,255,.2); color:#fff; border:2px solid #fff; border-radius:999px;
+        padding:6px 14px; font-weight:800; cursor:pointer; }
+  .note{ font-size:.95rem; color:#5a6b9c; }
+  .cfgwarn{ background:#fff1f1; border:3px solid #d63c3c; color:#962626; border-radius:14px; padding:14px; font-weight:700; }
+  select{ font-size:1.1rem; padding:12px; border-radius:12px; border:3px solid #c9d4f5; max-width:100%; }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="wrap">
+  <div class="toolbar">
+    <span>🎯 Trắc nghiệm trực tiếp</span>
+    <span><button id="musicBtn" onclick="toggleMusic()">🔇 Nhạc</button>
+    <button onclick="goHome()">🏠</button></span>
+  </div>
+  <div id="app"></div>
+</div>
+<script>
+/* =====================================================================
+   CẤU HÌNH — THẦY PHONG DÁN THÔNG TIN SUPABASE VÀO 2 DÒNG DƯỚI ĐÂY
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: "DÁN_URL_SUPABASE_VÀO_ĐÂY",       // ví dụ: https://abcd1234.supabase.co
+  SUPABASE_ANON_KEY: "DÁN_ANON_KEY_VÀO_ĐÂY",     // khóa anon trong Supabase > Settings > API
+};
+const QUESTION_TIME = 20; // số giây cho mỗi câu hỏi
+
+/* Bộ đề có sẵn — thầy có thể thêm/sửa trực tiếp tại đây */
+const QUESTION_SETS = {
+"Bài 3: Thông tin trên trang web (Củng cố)": [
+  { q:"Trên trang web thường có những loại thông tin nào?",
+    options:["Chỉ có văn bản","Văn bản, hình ảnh, âm thanh, video và siêu liên kết","Chỉ có hình ảnh và video","Chỉ có trò chơi và quảng cáo"],
+    correct:1, explain:"Trang web có nhiều loại thông tin: văn bản, hình ảnh, âm thanh, video và siêu liên kết." },
+  { q:"Khi em di chuột vào một siêu liên kết, con trỏ chuột sẽ thay đổi như thế nào?",
+    options:["To gấp đôi bình thường","Biến thành hình bàn tay","Nhấp nháy liên tục","Không thay đổi gì"],
+    correct:1, explain:"Khi di chuột vào siêu liên kết, con trỏ chuột chuyển thành hình bàn tay." },
+  { q:"Theo \u201cbộ lọc 3 Có\u201d, đâu KHÔNG phải là dấu hiệu của thông tin đáng tin cậy?",
+    options:["Tác giả hoặc cơ quan đăng tin rõ ràng","Có ngày tháng đăng, được cập nhật","Trình bày rõ ràng, phù hợp","Tiêu đề giật tít, nhiều quảng cáo lòe loẹt"],
+    correct:3, explain:"Thông tin đáng tin cần \u201c3 Có\u201d: tác giả/cơ quan rõ ràng, có ngày tháng cập nhật, trình bày phù hợp." },
+  { q:"Một trang web lạ yêu cầu em nhập họ tên, địa chỉ nhà và số điện thoại để nhận quà. Em nên làm gì?",
+    options:["Nhập ngay để nhận quà kẻo hết","Nhờ bạn thân nhập hộ mình","Dừng lại, giữ kín thông tin và hỏi ý kiến người lớn","Nhập bừa thông tin giả cho vui"],
+    correct:2, explain:"Đúng theo lời hứa của Biệt đội Lá chắn số: Gặp trang web lạ, em dừng lại. Thông tin riêng tư, em giữ kín. Chưa chắc chắn, em hỏi người lớn." },
+  { q:"Thông tin nào sau đây là thông tin riêng tư mà em cần giữ kín khi sử dụng Internet?",
+    options:["Màu sắc em yêu thích","Môn thể thao em hay chơi","Địa chỉ nhà và số điện thoại của bố mẹ","Tên bài hát em thích nghe"],
+    correct:2, explain:"Địa chỉ nhà, số điện thoại, mật khẩu... là thông tin riêng tư, tuyệt đối không chia sẻ cho người lạ trên mạng." }
+]};
+</script>
+
+<script>
+/* ================= ÂM THANH ================= */
+let AC=null, musicOn=false, musicTimer=null;
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC&&AC.state==="suspended")AC.resume(); return AC; }
+function tone(f,d=0.15,type="sine",v=0.22,delay=0){
+  const c=ac(); if(!c)return;
+  const o=c.createOscillator(), g=c.createGain(), t=c.currentTime+delay;
+  o.type=type; o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(v,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+d+0.05);
+}
+const SFX={
+  click(){ tone(600,0.08,"square",0.12); },
+  join(){ tone(523,0.12); tone(659,0.12,"sine",0.22,0.1); tone(784,0.2,"sine",0.22,0.2); },
+  correct(){ [523,659,784,1047].forEach((f,i)=>tone(f,0.18,"sine",0.25,i*0.09)); },
+  wrong(){ tone(330,0.25,"sawtooth",0.12); tone(220,0.35,"sawtooth",0.12,0.15); },
+  tick(){ tone(880,0.06,"square",0.08); },
+  fanfare(){ [523,523,659,784,784,1047,784,1047].forEach((f,i)=>tone(f,0.22,"triangle",0.25,i*0.16)); },
+  count(){ tone(1000,0.07,"square",0.1); }
+};
+const MELODY=[523,587,659,784,880,784,659,587,523,587,659,659,587,523,440,523];
+function toggleMusic(){
+  musicOn=!musicOn;
+  document.getElementById("musicBtn").textContent=musicOn?"🎵 Nhạc":"🔇 Nhạc";
+  if(musicOn){ let i=0; SFX.click();
+    musicTimer=setInterval(()=>{ tone(MELODY[i%MELODY.length],0.28,"triangle",0.1); i++; },300);
+  } else { clearInterval(musicTimer); }
+}
+
+/* ================= PHÁO HOA ================= */
+const fxC=document.getElementById("fx"), fxX=fxC.getContext("2d");
+let parts=[], fxRun=false;
+function fxSize(){ fxC.width=innerWidth; fxC.height=innerHeight; }
+addEventListener("resize",fxSize); fxSize();
+function boom(x,y,n=60){
+  const cols=["#ffd94d","#ff6b6b","#4f7cff","#37d67a","#ff9ff3","#fff"];
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=2+Math.random()*6;
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:60+Math.random()*40,c:cols[i%cols.length]}); }
+  if(!fxRun){ fxRun=true; requestAnimationFrame(fxTick); }
+}
+function fireworks(n=5){ for(let i=0;i<n;i++) setTimeout(()=>boom(Math.random()*fxC.width, Math.random()*fxC.height*0.6), i*350); }
+function fxTick(){
+  fxX.clearRect(0,0,fxC.width,fxC.height);
+  parts=parts.filter(p=>p.life>0);
+  parts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--;
+    fxX.globalAlpha=Math.min(1,p.life/40); fxX.fillStyle=p.c;
+    fxX.beginPath(); fxX.arc(p.x,p.y,3,0,7); fxX.fill(); });
+  fxX.globalAlpha=1;
+  if(parts.length) requestAnimationFrame(fxTick); else { fxRun=false; fxX.clearRect(0,0,fxC.width,fxC.height); }
+}
+
+/* ================= TRẠNG THÁI ================= */
+let sb=null, mode=null, room=null, players=[], answers=[];
+let myPlayer=null, myAnswer=null, timerInt=null, channel=null, lastTick=99, locking=false;
+const app=document.getElementById("app");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function configured(){ return CONFIG.SUPABASE_URL.startsWith("https://") && !CONFIG.SUPABASE_ANON_KEY.includes("DÁN_"); }
+function cfgWarn(){ return `<div class="card"><div class="cfgwarn">⚠️ Thầy ơi, file này chưa được gắn Supabase.<br>Mở file index.html, dán URL và ANON KEY vào phần CONFIG ở đầu thẻ &lt;script&gt; rồi tải lại trang nhé!</div></div>`; }
+function goHome(){ location.reload(); }
+function qNow(){ return (room&&room.question_set&&room.question_set[room.current])||null; }
+function remain(){ if(!room||!room.question_started_at) return QUESTION_TIME;
+  return Math.max(0, QUESTION_TIME - Math.floor((Date.now()-new Date(room.question_started_at).getTime())/1000)); }
+
+/* ================= MÀN HÌNH CHUNG ================= */
+function showHome(){
+  mode=null;
+  app.innerHTML=`<div class="card">
+    <h1>🎯 Trắc nghiệm trực tiếp</h1>
+    <p class="sub">Chơi cùng cả lớp theo thời gian thực — kiểu Kahoot!</p>
+    <button class="btn big green" onclick="SFX.click();showTeacherStart()">👨‍🏫 Giáo viên<br><small style="font-weight:400">Tạo phòng mới</small></button>
+    <button class="btn big orange" onclick="SFX.click();showStudentJoin()">🎒 Học sinh<br><small style="font-weight:400">Vào phòng bằng mã PIN</small></button>
+    <p class="note">Thầy mở trang này trên máy chiếu • Trò mở cùng địa chỉ này trên máy mình</p>
+  </div>`;
+}
+</script>
+
+<script>
+/* ================= GIÁO VIÊN ================= */
+function showTeacherStart(){
+  if(!configured()){ app.innerHTML=cfgWarn(); return; }
+  mode="teacher";
+  const sets=Object.keys(QUESTION_SETS).map(k=>`<option value="${esc(k)}">${esc(k)} (${QUESTION_SETS[k].length} câu)</option>`).join("");
+  app.innerHTML=`<div class="card">
+    <h2>👨‍🏫 Tạo phòng chơi mới</h2>
+    <p class="sub">Chọn bộ đề rồi bấm tạo phòng — mã PIN sẽ hiện thật to để cả lớp nhập.</p>
+    <p><select id="setSel">${sets}</select></p>
+    <button class="btn big green" onclick="tCreateRoom()">🚀 Tạo phòng</button><br>
+    <button class="btn" onclick="showTeacherRejoin()">🔑 Vào lại phòng cũ bằng PIN</button>
+  </div>`;
+}
+function showTeacherRejoin(){
+  app.innerHTML=`<div class="card"><h2>🔑 Vào lại phòng</h2>
+    <p class="sub">Nhập mã PIN của phòng đã tạo trước đó (khi thầy tải lại trang giữa giờ).</p>
+    <input type="text" id="pinIn" maxlength="6" placeholder="123456" inputmode="numeric"><br>
+    <button class="btn big green" onclick="tRejoin()">Vào phòng</button></div>`;
+}
+async function tRejoin(){
+  sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
+  const pin=document.getElementById("pinIn").value.trim();
+  const {data,error}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(error||!data){ alert("Không tìm thấy phòng với PIN này!"); return; }
+  room=data; mode="teacher"; subscribeTeacher(); renderTeacher();
+}
+async function tCreateRoom(){
+  sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
+  const pin=String(Math.floor(100000+Math.random()*900000));
+  const setName=document.getElementById("setSel").value;
+  const {data,error}=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:QUESTION_SETS[setName]}).select().single();
+  if(error){ alert("Lỗi tạo phòng: "+error.message); return; }
+  room=data; SFX.join(); subscribeTeacher(); renderTeacher();
+}
+function subscribeTeacher(){
+  if(channel) sb.removeChannel(channel);
+  players=[]; answers=[];
+  channel=sb.channel("t-"+room.id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`room_id=eq.${room.id}`},p=>{
+      if(p.eventType==="INSERT"){ players.push(p.new); SFX.join(); }
+      if(p.eventType==="DELETE"){ players=players.filter(x=>x.id!==p.old.id); }
+      renderTeacher();
+    })
+    .on("postgres_changes",{event:"*",schema:"public",table:"answers",filter:`room_id=eq.${room.id}`},p=>{
+      if(p.eventType==="INSERT"&&p.new.q_index===room.current){ answers.push(p.new); SFX.tick(); }
+      renderTeacher();
+    })
+    .on("postgres_changes",{event:"*",schema:"public",table:"rooms",filter:`id=eq.${room.id}`},p=>{
+      room=p.new; renderTeacher();
+    })
+    .subscribe();
+  sb.from("players").select("*").eq("room_id",room.id).then(r=>{ players=r.data||[]; renderTeacher(); });
+}
+async function tStart(){
+  SFX.click(); locking=false;
+  await sb.from("rooms").update({phase:"question",current:0,question_started_at:new Date().toISOString()}).eq("id",room.id);
+}
+async function tLock(){ if(locking) return; locking=true; SFX.click(); await sb.from("rooms").update({phase:"reveal"}).eq("id",room.id); await tScore(); }
+async function tNext(){
+  SFX.click(); locking=false;
+  const n=room.question_set.length;
+  if(room.current+1<n) await sb.from("rooms").update({phase:"question",current:room.current+1,question_started_at:new Date().toISOString()}).eq("id",room.id);
+  else { await sb.from("rooms").update({phase:"podium"}).eq("id",room.id); }
+}
+async function tScore(){
+  // Cộng điểm: đúng = 100 + thưởng tốc độ (nhanh nhất +50, giảm dần)
+  const {data}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",room.current).eq("is_correct",true).order("ms",{ascending:true});
+  for(let i=0;i<(data||[]).length;i++){
+    const a=data[i], pts=100+Math.max(0,50-i*5);
+    const pl=players.find(x=>x.id===a.player_id);
+    if(pl){ const ns=pl.score+pts; await sb.from("players").update({score:ns}).eq("id",pl.id); pl.score=ns; }
+  }
+  const {data:all}=await sb.from("players").select("*").eq("room_id",room.id).order("score",{ascending:false});
+  if(all) players=all;
+  renderTeacher();
+}
+function tKick(id){ if(confirm("Xóa học sinh này khỏi phòng?")) sb.from("players").delete().eq("id",id); }
+
+function renderTeacher(){
+  if(mode!=="teacher"||!room) return;
+  clearInterval(timerInt);
+  if(room.phase==="lobby") return tLobby();
+  if(room.phase==="question") return tQuestion();
+  if(room.phase==="reveal") return tReveal();
+  if(room.phase==="podium") return tPodium();
+}
+function tLobby(){
+  const list=players.map(p=>`<span class="pname">${esc(p.name)} <a href="#" onclick="event.preventDefault();tKick('${p.id}')" title="Xóa">✖</a></span>`).join("")||`<p class="note">Chờ học sinh vào bằng mã PIN...</p>`;
+  app.innerHTML=`<div class="card">
+    <h2>📢 Cả lớp nhập mã PIN này:</h2>
+    <div class="pin">${room.pin}</div>
+    <p class="sub">Đã vào: <b>${players.length}</b> bạn</p>
+    <div class="plist">${list}</div>
+    <button class="btn big green" ${players.length?"":"disabled"} onclick="tStart()">▶ Bắt đầu (${room.question_set.length} câu)</button>
+    <p class="note">Mỗi câu có ${QUESTION_TIME} giây • Đúng = 100 điểm + thưởng tốc độ</p>
+  </div>`;
+}
+function tQuestion(){
+  const q=qNow(); if(!q) return;
+  answers=answers.filter(a=>a.q_index===room.current);
+  const names=q.options.map((t,i)=>["🟥","🟦","🟨","🟩"][i]+" "+esc(t)).join("<br>");
+  lastTick=99;
+  timerInt=setInterval(()=>{ const r=remain();
+    const el=document.getElementById("tTimer");
+    if(el){ el.textContent=r; el.classList.toggle("warn",r<=5); }
+    if(r!==lastTick){ lastTick=r; if(r<=5&&r>0)SFX.count(); }
+    if(r<=0){ clearInterval(timerInt); tLock(); }
+  },250);
+  app.innerHTML=`<div class="card">
+    <div class="timer" id="tTimer">${remain()}</div>
+    <div class="qtext">Câu ${room.current+1}/${room.question_set.length}: ${esc(q.q)}</div>
+    <div style="font-size:1.15rem;text-align:left">${names}</div>
+    <p class="sub">Đã trả lời: <b id="ansCount">${answers.length}</b>/${players.length} bạn</p>
+    <button class="btn big red" onclick="tLock()">🔒 Chốt đáp án</button>
+  </div>`;
+}
+function tReveal(){
+  const q=qNow(); if(!q) return;
+  const counts=[0,0,0,0]; answers.forEach(a=>{ if(a.q_index===room.current) counts[a.option_index]++; });
+  const total=Math.max(1,answers.length);
+  const bars=q.options.map((t,i)=>{
+    const pct=Math.round(counts[i]/total*100), right=i===q.correct;
+    return `<div class="bar ${right?"right":""}"><div style="width:${Math.max(pct,8)}%">${["🟥","🟦","🟨","🟩"][i]} ${esc(t)} — ${counts[i]} (${pct}%)</div></div>`;
+  }).join("");
+  const board=[...players].sort((a,b)=>b.score-a.score).slice(0,5)
+    .map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td><b>${p.score}</b></td></tr>`).join("");
+  const last=room.current+1>=room.question_set.length;
+  app.innerHTML=`<div class="card">
+    <h2>${last?"🎬 Câu cuối cùng!":"📊 Kết quả câu "+(room.current+1)}</h2>
+    <div class="qtext">${esc(q.q)}</div>${bars}
+    <div class="explain">💡 ${esc(q.explain||"")}</div>
+    <h3>🏅 Top tạm thời</h3>
+    <table class="score"><tr><th>#</th><th>Tên</th><th>Điểm</th></tr>${board}</table>
+    <button class="btn big green" onclick="tNext()">${last?"🏆 Vinh danh":"➡ Câu tiếp theo"}</button>
+  </div>`;
+}
+function tPodium(){
+  clearInterval(timerInt);
+  const sorted=[...players].sort((a,b)=>b.score-a.score);
+  const top=sorted.slice(0,3), rest=sorted.slice(3);
+  const medals=["🥇","🥈","🥉"], cls=["s1","s2","s3"], order=[1,0,2];
+  const steps=order.map(i=>{ const p=top[i]; if(!p)return"";
+    return `<div class="step ${cls[i]}"><span class="medal">${medals[i]}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} điểm</span></div>`; }).join("");
+  const rows=rest.map((p,i)=>`<tr><td>${i+4}</td><td>${esc(p.name)}</td><td>${p.score}</td></tr>`).join("");
+  app.innerHTML=`<div class="card">
+    <h1>🏆 Vinh danh 🏆</h1>
+    <div class="podium">${steps}</div>
+    ${rows?`<table class="score"><tr><th>#</th><th>Tên</th><th>Điểm</th></tr>${rows}</table>`:""}
+    <button class="btn big orange" onclick="tAgain()">🔁 Chơi lại từ đầu</button>
+  </div>`;
+  SFX.fanfare(); fireworks(8);
+}
+async function tAgain(){ SFX.click();
+  await sb.from("players").update({score:0}).eq("room_id",room.id);
+  await sb.from("answers").delete().eq("room_id",room.id);
+  await sb.from("rooms").update({phase:"lobby",current:0}).eq("id",room.id);
+  players.forEach(p=>p.score=0); answers=[];
+}
+</script>
+
+<script>
+/* ================= HỌC SINH ================= */
+function showStudentJoin(){
+  if(!configured()){ app.innerHTML=cfgWarn(); return; }
+  mode="student"; sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
+  app.innerHTML=`<div class="card">
+    <h2>🎒 Vào phòng chơi</h2>
+    <p class="sub">Nhập mã PIN thầy chiếu trên bảng:</p>
+    <input type="text" id="pinIn" maxlength="6" placeholder="Mã PIN" inputmode="numeric"><br><br>
+    <input type="text" id="nameIn" maxlength="20" placeholder="Tên của em"><br>
+    <button class="btn big orange" onclick="sJoin()">🚀 Vào phòng</button>
+  </div>`;
+}
+async function sJoin(){
+  const pin=document.getElementById("pinIn").value.trim();
+  const name=document.getElementById("nameIn").value.trim();
+  if(pin.length<4){ alert("Em nhập mã PIN nhé!"); return; }
+  if(!name){ alert("Em nhập tên nhé!"); return; }
+  SFX.click();
+  const {data:rm}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(!rm){ alert("Không tìm thấy phòng! Kiểm tra lại mã PIN nhé."); return; }
+  if(rm.phase!=="lobby"){ alert("Phòng đã bắt đầu rồi, hẹn em lần sau nhé!"); return; }
+  const {data:pl,error}=await sb.from("players").insert({room_id:rm.id,name}).select().single();
+  if(error){ alert("Lỗi vào phòng: "+error.message); return; }
+  room=rm; myPlayer=pl; myAnswer=null; SFX.join(); subscribeStudent(); renderStudent();
+}
+function subscribeStudent(){
+  if(channel) sb.removeChannel(channel);
+  channel=sb.channel("s-"+room.id+"-"+myPlayer.id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"rooms",filter:`id=eq.${room.id}`},p=>{
+      const wasPhase=room.phase, wasQ=room.current;
+      room=p.new;
+      if(room.phase==="question"&&(wasPhase!=="question"||wasQ!==room.current)) myAnswer=null;
+      renderStudent();
+    })
+    .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`id=eq.${myPlayer.id}`},p=>{
+      if(p.eventType==="UPDATE") myPlayer=p.new;
+      renderStudent();
+    })
+    .subscribe();
+  sb.from("players").select("*").eq("room_id",room.id).then(r=>{ players=r.data||[]; });
+  sb.channel("s-pl-"+room.id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"players",filter:`room_id=eq.${room.id}`},p=>{
+      if(p.eventType==="INSERT") players.push(p.new);
+      if(p.eventType==="UPDATE"){ const i=players.findIndex(x=>x.id===p.new.id); if(i>=0)players[i]=p.new; }
+      if(p.eventType==="DELETE") players=players.filter(x=>x.id!==p.old.id);
+      if(room&&(room.phase==="reveal"||room.phase==="podium")) renderStudent();
+    }).subscribe();
+}
+async function sAnswer(i){
+  if(myAnswer!==null||!room||room.phase!=="question") return;
+  const q=qNow(); if(!q) return;
+  const ms=Date.now()-new Date(room.question_started_at).getTime();
+  myAnswer=i;
+  if(i===q.correct){ SFX.correct(); boom(window.innerWidth/2,200,40); } else SFX.wrong();
+  renderStudent();
+  await sb.from("answers").upsert(
+    {room_id:room.id,player_id:myPlayer.id,q_index:room.current,option_index:i,is_correct:i===q.correct,ms},
+    {onConflict:"room_id,player_id,q_index"});
+}
+function renderStudent(){
+  if(mode!=="student"||!room) return;
+  clearInterval(timerInt);
+  if(room.phase==="lobby") return sWait();
+  if(room.phase==="question") return sQuestion();
+  if(room.phase==="reveal") return sReveal();
+  if(room.phase==="podium") return sPodium();
+}
+function sWait(){
+  app.innerHTML=`<div class="card">
+    <h2>👋 Chào ${esc(myPlayer.name)}!</h2>
+    <p class="sub">Em đã vào phòng <b>${room.pin}</b> rồi.<br>Ngồi ngay ngắn, chờ thầy bắt đầu nhé! ⏳</p>
+    <p style="font-size:3rem">😎📚✏️</p>
+  </div>`;
+}
+function sQuestion(){
+  const q=qNow(); if(!q) return;
+  if(myAnswer!==null){
+    app.innerHTML=`<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ các bạn khác nhé...</p><div class="timer" id="sTimer">${remain()}</div></div>`;
+  } else {
+    const btns=q.options.map((t,i)=>`<button class="opt" onclick="sAnswer(${i})">${["🟥","🟦","🟨","🟩"][i]} ${esc(t)}</button>`).join("");
+    app.innerHTML=`<div class="card">
+      <div class="timer" id="sTimer">${remain()}</div>
+      <div class="qtext">${esc(q.q)}</div>
+      <div class="opts">${btns}</div>
+    </div>`;
+  }
+  lastTick=99;
+  timerInt=setInterval(()=>{ const r=remain();
+    const el=document.getElementById("sTimer");
+    if(el){ el.textContent=r; el.classList.toggle("warn",r<=5); }
+    if(r!==lastTick){ lastTick=r; if(r<=5&&r>0)SFX.count(); }
+    if(r<=0) clearInterval(timerInt);
+  },250);
+}
+function sReveal(){
+  const q=qNow(); if(!q) return;
+  const ok=myAnswer===q.correct;
+  const me=players.find(p=>p.id===myPlayer.id);
+  const sc=me?me.score:myPlayer.score;
+  const btns=q.options.map((t,i)=>{
+    const cls=i===q.correct?"correct":(i===myAnswer?"wrong picked":"dim");
+    return `<div class="opt ${cls}">${["🟥","🟦","🟨","🟩"][i]} ${esc(t)}</div>`;
+  }).join("");
+  app.innerHTML=`<div class="card">
+    <h2>${ok?"🎉 Đúng rồi!":"😅 Sai rồi!"}</h2>
+    <div class="qtext" style="font-size:1.2rem">${esc(q.q)}</div>
+    <div class="opts">${btns}</div>
+    <div class="explain">💡 ${esc(q.explain||"")}</div>
+    <p class="sub">Điểm của em: <b style="font-size:1.5rem">${sc}</b></p>
+  </div>`;
+  if(ok) fireworks(3);
+}
+function sPodium(){
+  clearInterval(timerInt);
+  const sorted=[...players].sort((a,b)=>b.score-a.score);
+  const rank=sorted.findIndex(p=>p.id===myPlayer.id)+1;
+  const top=sorted.slice(0,3);
+  const medals=["🥇","🥈","🥉"], cls=["s1","s2","s3"], order=[1,0,2];
+  const steps=order.map(i=>{ const p=top[i]; if(!p)return"";
+    const me=p.id===myPlayer.id?"me":"";
+    return `<div class="step ${cls[i]}"><span class="medal">${medals[i]}</span><span class="nm">${esc(p.name)}${me?" (em!)":""}</span><span class="sc">${p.score} điểm</span></div>`; }).join("");
+  app.innerHTML=`<div class="card">
+    <h1>🏆 Kết quả 🏆</h1>
+    <div class="podium">${steps}</div>
+    <h2>${rank<=3?`🎊 Em đứng hạng ${rank}! Tuyệt vời!`:`Em đứng hạng ${rank} — cố gắng lần sau nhé! 💪`}</h2>
+    <p class="sub">Điểm của em: <b>${myPlayer.score}</b></p>
+  </div>`;
+  SFX.fanfare(); fireworks(8);
+}
+
+/* ================= KHỞI ĐỘNG ================= */
+showHome();
+</script>
+</body>
+</html>
