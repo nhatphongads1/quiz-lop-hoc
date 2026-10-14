@@ -204,45 +204,56 @@ function showHome(){
   </div>`;
 }
 
-/* ================= GIÁO VIÊN: ĐĂNG NHẬP ================= */
+/* ============ GIÁO VIÊN: ĐĂNG NHẬP (chỉ khóa Ngân hàng & AI) ============ */
 const ADMIN_USER="Admin", ADMIN_PASS="1960496Chi@";
-function showTeacher(){
-  sbInit();
-  if(sessionStorage.getItem("tq_admin")==="1"){ showTeacherMain(); return; }
-  mode="teacher";
-  app.innerHTML=`<div class="card"><div class="loginbox">
-    <h2>🔐 Đăng nhập quản trị</h2>
-    <p class="sub">Khu vực dành cho giáo viên — vui lòng đăng nhập</p>
-    <input type="text" id="adUser" placeholder="Tên đăng nhập..." autocomplete="username" onkeydown="if(event.key==='Enter')tLogin()">
-    <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
-    <div id="loginErr" style="margin:6px 0"></div>
-    <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
-  </div></div>`;
-}
+let pendingTab=null;
+function showTeacher(){ sbInit(); pendingTab=null; showTeacherMain(); }
 function tLogin(){
   const u=document.getElementById("adUser").value.trim();
   const p=document.getElementById("adPass").value;
-  if(u===ADMIN_USER&&p===ADMIN_PASS){ sessionStorage.setItem("tq_admin","1"); SFX.correct(); showTeacherMain(); }
+  if(u===ADMIN_USER&&p===ADMIN_PASS){
+    sessionStorage.setItem("tq_admin","1"); SFX.correct();
+    const pt=pendingTab; pendingTab=null; showTeacherMain(pt);
+  }
   else{ SFX.wrong(); document.getElementById("loginErr").innerHTML=`<div class="cfgwarn">⚠️ Sai tên đăng nhập hoặc mật khẩu!</div>`; }
 }
-function tLogout(){ sessionStorage.removeItem("tq_admin"); SFX.click(); showHome(); }
-function showTeacherMain(){
+function tLogout(){ sessionStorage.removeItem("tq_admin"); pendingTab=null; SFX.click(); showTeacherMain(); }
+function showTeacherMain(afterTab){
   mode="teacher";
+  const logged=sessionStorage.getItem("tq_admin")==="1";
   app.innerHTML=`<div class="card">
-    <div style="text-align:right"><button class="btn small red" onclick="tLogout()">🚪 Đăng xuất</button></div>
+    ${logged?`<div style="text-align:right"><button class="btn small red" onclick="tLogout()">🚪 Đăng xuất</button></div>`:""}
     <h2>👨‍🏫 Khu vực giáo viên</h2>
     <div class="tabs">
       <button class="tab on" id="tabRoom" onclick="SFX.click();tTab('room')">🚀 Tạo phòng</button>
-      <button class="tab" id="tabBank" onclick="SFX.click();tTab('bank')">📚 Ngân hàng câu hỏi</button>
-      <button class="tab" id="tabAI" onclick="SFX.click();tTab('ai')">🤖 AI tạo câu hỏi</button>
+      <button class="tab" id="tabBank" onclick="SFX.click();tTab('bank')">📚 Ngân hàng câu hỏi ${logged?"":"🔒"}</button>
+      <button class="tab" id="tabAI" onclick="SFX.click();tTab('ai')">🤖 AI tạo câu hỏi ${logged?"":"🔒"}</button>
     </div>
     <div id="tBody"><span class="spin"></span> Đang tải...</div>
   </div>`;
-  tTab("room");
+  tTab(afterTab||"room");
 }
 async function tTab(which){
   const ids={room:"tabRoom",bank:"tabBank",ai:"tabAI"};
-  Object.entries(ids).forEach(([t,id])=>document.getElementById(id).classList.toggle("on",t===which));
+  Object.entries(ids).forEach(([t,id])=>{ const e=document.getElementById(id); if(e) e.classList.toggle("on",t===which); });
+  // Chỉ khóa 2 tab Ngân hàng & AI — tab Tạo phòng ai cũng dùng được
+  if((which==="bank"||which==="ai")&&sessionStorage.getItem("tq_admin")!=="1"){
+    pendingTab=which;
+    const tn=which==="bank"?"📚 Ngân hàng câu hỏi":"🤖 AI tạo câu hỏi";
+    document.getElementById("tBody").innerHTML=`<div class="loginbox">
+      <h3>🔒 ${tn} — Tính năng nâng cao</h3>
+      <p class="sub">Đây là tính năng của <b>bản thương mại</b>.<br>
+      Liên hệ thầy <b>Nhật Phong</b> để được cấp quyền sử dụng:<br>
+      <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook: Nhật Phong</a>
+      &nbsp;•&nbsp;
+      <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a></p>
+      <input type="text" id="adUser" placeholder="Tên đăng nhập..." autocomplete="username" onkeydown="if(event.key==='Enter')tLogin()">
+      <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
+      <div id="loginErr" style="margin:6px 0"></div>
+      <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
+    </div>`;
+    return;
+  }
   if(which==="room") return tRoomTab();
   if(which==="bank") return tBankTab();
   return tAITab();
