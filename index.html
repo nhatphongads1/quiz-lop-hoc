@@ -179,6 +179,20 @@ let myPlayer=null, myAnswer=null, timerInt=null, channel=null, channel2=null, la
 let bank=[], aiResult=null, editingQ=null, bankReadOnly=false;
 const app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* ---- Phiên đăng nhập & phân quyền (trial 7 ngày / paid / owner) ---- */
+async function sha256(s){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+function sess(){ try{ return JSON.parse(sessionStorage.getItem("tq_sess")||"null"); }catch(e){ return null; } }
+function trialDaysLeft(s){
+  if(!s||s.plan!=="trial"||!s.exp) return "";
+  const d=Math.max(0,Math.ceil((new Date(s.exp)-new Date())/86400000));
+  return `<p class="note">⏳ Dùng thử còn <b>${d}</b> ngày.</p>`;
+}
+function planBadge(s){
+  if(!s) return "";
+  if(s.plan==="owner") return `👑 <b>Admin</b>`;
+  if(s.plan==="paid") return `👤 ${esc(s.u)} • <b style="color:#1d9e52">Bản thương mại</b>`;
+  return `👤 ${esc(s.u)} • <b style="color:#b5651d">Dùng thử</b>`;
+}
 function goHome(){ location.reload(); }
 function qNow(){ return (room&&room.question_set&&room.question_set[room.current])||null; }
 function remain(){ if(!room||!room.question_started_at) return QUESTION_TIME;
@@ -204,30 +218,56 @@ function showHome(){
   </div>`;
 }
 
-/* ============ GIÁO VIÊN: ĐĂNG NHẬP (chỉ khóa Ngân hàng & AI) ============ */
+/* ============ GIÁO VIÊN: ĐĂNG NHẬP & PHÂN QUYỀN ============
+   - Chưa đăng nhập: chỉ khóa 2 tab Ngân hàng & AI (tab Tạo phòng mở tự do)
+   - trial (7 ngày): được thêm TỪNG câu hỏi; KHÔNG được nhập hàng loạt & AI
+   - paid/owner: đầy đủ tính năng                                            */
 const ADMIN_USER="Admin", ADMIN_PASS="1960496Chi@";
 let pendingTab=null;
-function showTeacher(){ sbInit(); pendingTab=null; showTeacherMain(); }
-function tLogin(){
+function showTeacher(){
+  sbInit(); pendingTab=null;
+  if(sessionStorage.getItem("tq_admin")==="1"&&!sess()){ // tương thích phiên cũ
+    sessionStorage.setItem("tq_sess",JSON.stringify({u:"Admin",plan:"owner",exp:null}));
+    sessionStorage.removeItem("tq_admin");
+  }
+  showTeacherMain();
+}
+async function tLogin(){
   const u=document.getElementById("adUser").value.trim();
   const p=document.getElementById("adPass").value;
+  const errBox=document.getElementById("loginErr");
+  const err=m=>{ errBox.innerHTML=`<div class="cfgwarn">⚠️ ${m}</div>`; };
+  if(!u||!p){ err("Thầy nhập tên đăng nhập và mật khẩu nhé!"); return; }
   if(u===ADMIN_USER&&p===ADMIN_PASS){
-    sessionStorage.setItem("tq_admin","1"); SFX.correct();
-    const pt=pendingTab; pendingTab=null; showTeacherMain(pt);
+    sessionStorage.setItem("tq_sess",JSON.stringify({u:"Admin",plan:"owner",exp:null}));
+    SFX.correct(); const pt=pendingTab; pendingTab=null; showTeacherMain(pt); return;
   }
-  else{ SFX.wrong(); document.getElementById("loginErr").innerHTML=`<div class="cfgwarn">⚠️ Sai tên đăng nhập hoặc mật khẩu!</div>`; }
+  try{
+    const h=await sha256(p);
+    const {data,error}=await sb.from("licenses").select("*").eq("username",u).eq("pass_hash",h).limit(1);
+    if(error) throw error;
+    if(!data||!data.length){ SFX.wrong(); err("Sai tên đăng nhập hoặc mật khẩu!"); return; }
+    const acc=data[0];
+    if(acc.plan==="trial"&&acc.expires_at&&new Date(acc.expires_at)<new Date()){
+      SFX.wrong(); err(`Tài khoản dùng thử đã <b>hết hạn 7 ngày</b>.<br>Liên hệ thầy Nhật Phong để nâng cấp bản thương mại nhé!<br><a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook</a> • <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a>`);
+      return;
+    }
+    sessionStorage.setItem("tq_sess",JSON.stringify({u:acc.username,plan:acc.plan,exp:acc.expires_at}));
+    SFX.correct(); const pt=pendingTab; pendingTab=null; showTeacherMain(pt);
+  }catch(e){ SFX.wrong(); err("Không kiểm tra được tài khoản. Kiểm tra mạng rồi thử lại nhé!"); }
 }
-function tLogout(){ sessionStorage.removeItem("tq_admin"); pendingTab=null; SFX.click(); showTeacherMain(); }
+function tLogout(){ sessionStorage.removeItem("tq_sess"); pendingTab=null; SFX.click(); showTeacherMain(); }
 function showTeacherMain(afterTab){
   mode="teacher";
-  const logged=sessionStorage.getItem("tq_admin")==="1";
+  const s=sess();
+  const canBank=!!s, canAI=!!s&&s.plan!=="trial";
   app.innerHTML=`<div class="card">
-    ${logged?`<div style="text-align:right"><button class="btn small red" onclick="tLogout()">🚪 Đăng xuất</button></div>`:""}
+    ${s?`<div style="display:flex;justify-content:space-between;align-items:center"><span class="note">${planBadge(s)}</span><button class="btn small red" onclick="tLogout()">🚪 Đăng xuất</button></div>`:""}
     <h2>👨‍🏫 Khu vực giáo viên</h2>
     <div class="tabs">
       <button class="tab on" id="tabRoom" onclick="SFX.click();tTab('room')">🚀 Tạo phòng</button>
-      <button class="tab" id="tabBank" onclick="SFX.click();tTab('bank')">📚 Ngân hàng câu hỏi ${logged?"":"🔒"}</button>
-      <button class="tab" id="tabAI" onclick="SFX.click();tTab('ai')">🤖 AI tạo câu hỏi ${logged?"":"🔒"}</button>
+      <button class="tab" id="tabBank" onclick="SFX.click();tTab('bank')">📚 Ngân hàng câu hỏi ${canBank?"":"🔒"}</button>
+      <button class="tab" id="tabAI" onclick="SFX.click();tTab('ai')">🤖 AI tạo câu hỏi ${canAI?"":"🔒"}</button>
     </div>
     <div id="tBody"><span class="spin"></span> Đang tải...</div>
   </div>`;
@@ -236,8 +276,8 @@ function showTeacherMain(afterTab){
 async function tTab(which){
   const ids={room:"tabRoom",bank:"tabBank",ai:"tabAI"};
   Object.entries(ids).forEach(([t,id])=>{ const e=document.getElementById(id); if(e) e.classList.toggle("on",t===which); });
-  // Chỉ khóa 2 tab Ngân hàng & AI — tab Tạo phòng ai cũng dùng được
-  if((which==="bank"||which==="ai")&&sessionStorage.getItem("tq_admin")!=="1"){
+  // Chưa đăng nhập: khóa 2 tab Ngân hàng & AI (tab Tạo phòng mở tự do)
+  if((which==="bank"||which==="ai")&&!sess()){
     pendingTab=which;
     const tn=which==="bank"?"📚 Ngân hàng câu hỏi":"🤖 AI tạo câu hỏi";
     document.getElementById("tBody").innerHTML=`<div class="loginbox">
@@ -251,6 +291,21 @@ async function tTab(which){
       <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
       <div id="loginErr" style="margin:6px 0"></div>
       <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
+    </div>`;
+    return;
+  }
+  // Tài khoản dùng thử: không được dùng AI (chỉ thêm từng câu hỏi)
+  const s0=sess();
+  if(which==="ai"&&s0&&s0.plan==="trial"){
+    document.getElementById("tBody").innerHTML=`<div class="loginbox">
+      <h3>🤖 AI tạo câu hỏi — Bản trả phí</h3>
+      <p class="sub">Tài khoản <b>${esc(s0.u)}</b> đang dùng <b>bản dùng thử</b> (chỉ thêm từng câu hỏi).<br>
+      Nâng cấp lên <b>bản thương mại</b> để dùng chatbot AI sinh câu hỏi hàng loạt.<br>
+      Liên hệ thầy <b>Nhật Phong</b>:
+      <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook</a>
+      &nbsp;•&nbsp;
+      <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a></p>
+      ${trialDaysLeft(s0)}
     </div>`;
     return;
   }
@@ -318,7 +373,10 @@ function tSetDetail(id){
   document.getElementById("tBody").innerHTML=`
     <h3>📚 ${esc(s.set_name)} (${s.questions.length} câu)</h3>
     <div style="text-align:left;max-width:640px;margin:0 auto">${rows||'<p class="note">Chưa có câu hỏi nào.</p>'}</div>
-    ${bankReadOnly?"":`<button class="btn green" onclick="tQForm('${id}',-1)">➕ Thêm câu hỏi</button>`}
+    ${bankReadOnly?"":(()=>{ const s0=sess(); const canBulk=s0&&(s0.plan==="paid"||s0.plan==="owner");
+      return `<button class="btn green" onclick="tQForm('${id}',-1)">➕ Thêm câu hỏi</button>`
+        +(canBulk?` <button class="btn purple" onclick="tBulkForm('${id}')">📥 Nhập hàng loạt</button>`
+                 :` <p class="note">💡 <b>Bản thương mại</b> mới nhập được hàng loạt.</p>`); })()}
     <button class="btn" onclick="tBankTab()">← Về danh sách</button>`;
 }
 function tQDel(sid,i){
@@ -381,6 +439,44 @@ function tQSubmit(){
   const q={type,q:qText,options,correct,explain:document.getElementById("qExplain").value.trim(),image_url:document.getElementById("qImg").value.trim()};
   if(i>=0) s.questions[i]=q; else s.questions.push(q);
   SFX.correct(); tQSave(sid);
+}
+/* ---- Nhập hàng loạt (chỉ bản thương mại) ---- */
+function tBulkForm(sid){
+  const s=bank.find(x=>x.id===sid); if(!s) return;
+  document.getElementById("tBody").innerHTML=`
+    <h3>📥 Nhập hàng loạt — ${esc(s.set_name)}</h3>
+    <div style="text-align:left;max-width:640px;margin:0 auto">
+      <p class="note">Dán danh sách câu hỏi theo định dạng JSON rồi bấm "Nhập".
+      <button class="btn small" onclick="tBulkSample()">📋 Xem mẫu</button></p>
+      <textarea id="bulkText" style="min-height:220px;font-family:monospace;font-size:.9rem" placeholder='[{"type":"choice","q":"...","options":["A","B","C","D"],"correct":0,"explain":"...","image_url":""}]'></textarea>
+      <div id="bulkErr" style="margin:6px 0"></div>
+      <button class="btn big green" onclick="tBulkSubmit('${sid}')">📥 Nhập câu hỏi</button>
+      <button class="btn" onclick="tSetDetail('${sid}')">Hủy</button>
+    </div>`;
+}
+function tBulkSample(){
+  document.getElementById("bulkText").value=JSON.stringify([
+    {"type":"choice","q":"Câu hỏi ví dụ?","options":["Đáp án 1","Đáp án 2","Đáp án 3","Đáp án 4"],"correct":1,"explain":"Giải thích...","image_url":""},
+    {"type":"truefalse","q":"Câu đúng/sai ví dụ?","options":["Đúng","Sai"],"correct":0,"explain":"Giải thích...","image_url":""}
+  ],null,1);
+}
+function tBulkSubmit(sid){
+  const s=bank.find(x=>x.id===sid); if(!s) return;
+  let arr;
+  try{ arr=JSON.parse(document.getElementById("bulkText").value); if(!Array.isArray(arr)) throw 0; }
+  catch(e){ document.getElementById("bulkErr").innerHTML=`<div class="cfgwarn">⚠️ Nội dung chưa đúng định dạng JSON. Bấm "Xem mẫu" để tham khảo nhé!</div>`; return; }
+  const ok=[];
+  for(const x of arr){
+    if(!x||!x.q) continue;
+    const type=x.type==="truefalse"?"truefalse":"choice";
+    const options=type==="truefalse"?["Đúng","Sai"]:(Array.isArray(x.options)&&x.options.length===4?x.options.map(String):null);
+    if(!options) continue;
+    let correct=parseInt(x.correct)||0; if(correct<0||correct>=options.length) correct=0;
+    ok.push({type,q:String(x.q),options,correct,explain:String(x.explain||""),image_url:String(x.image_url||"")});
+  }
+  if(!ok.length){ document.getElementById("bulkErr").innerHTML=`<div class="cfgwarn">⚠️ Không có câu hỏi hợp lệ nào để nhập.</div>`; return; }
+  s.questions=s.questions.concat(ok);
+  SFX.fanfare(); fireworks(4); tQSave(sid);
 }
 </script>
 
