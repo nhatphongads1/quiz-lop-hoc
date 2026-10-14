@@ -88,6 +88,10 @@
         border-radius:50%; animation:sp 0.8s linear infinite; vertical-align:middle; }
   @keyframes sp{ to{ transform:rotate(360deg);} }
   .imgprompt{ font-size:.85rem; color:#7d3fd1; background:#f3efff; border-radius:8px; padding:6px 10px; margin-top:6px; display:block; }
+  .footer{ margin-top:20px; font-size:.95rem; color:#5a6b9c; line-height:1.8; }
+  .footer a{ color:#2b4fe0; font-weight:700; text-decoration:none; }
+  .footer a:hover{ text-decoration:underline; }
+  .loginbox{ max-width:380px; margin:0 auto; }
 </style>
 </head>
 <body>
@@ -192,13 +196,40 @@ function showHome(){
     <button class="btn big green" onclick="SFX.click();showTeacher()">👨‍🏫 Giáo viên<br><small style="font-weight:400">Tạo phòng • Ngân hàng đề • AI</small></button>
     <button class="btn big orange" onclick="SFX.click();showStudentJoin()">🎒 Học sinh<br><small style="font-weight:400">Vào phòng bằng mã PIN</small></button>
     <p class="note">Thầy mở trang này trên máy chiếu • Trò mở cùng địa chỉ này trên máy mình</p>
+    <div class="footer">👨‍💻 Phát triển bởi <b>thầy Nhật Phong</b><br>
+      <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook: Nhật Phong</a>
+      &nbsp;•&nbsp;
+      <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a>
+    </div>
   </div>`;
 }
 
-/* ================= GIÁO VIÊN: MENU ================= */
+/* ================= GIÁO VIÊN: ĐĂNG NHẬP ================= */
+const ADMIN_USER="Admin", ADMIN_PASS="1960496Chi@";
 function showTeacher(){
-  sbInit(); mode="teacher";
+  sbInit();
+  if(sessionStorage.getItem("tq_admin")==="1"){ showTeacherMain(); return; }
+  mode="teacher";
+  app.innerHTML=`<div class="card"><div class="loginbox">
+    <h2>🔐 Đăng nhập quản trị</h2>
+    <p class="sub">Khu vực dành cho giáo viên — vui lòng đăng nhập</p>
+    <input type="text" id="adUser" placeholder="Tên đăng nhập..." autocomplete="username" onkeydown="if(event.key==='Enter')tLogin()">
+    <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
+    <div id="loginErr" style="margin:6px 0"></div>
+    <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
+  </div></div>`;
+}
+function tLogin(){
+  const u=document.getElementById("adUser").value.trim();
+  const p=document.getElementById("adPass").value;
+  if(u===ADMIN_USER&&p===ADMIN_PASS){ sessionStorage.setItem("tq_admin","1"); SFX.correct(); showTeacherMain(); }
+  else{ SFX.wrong(); document.getElementById("loginErr").innerHTML=`<div class="cfgwarn">⚠️ Sai tên đăng nhập hoặc mật khẩu!</div>`; }
+}
+function tLogout(){ sessionStorage.removeItem("tq_admin"); SFX.click(); showHome(); }
+function showTeacherMain(){
+  mode="teacher";
   app.innerHTML=`<div class="card">
+    <div style="text-align:right"><button class="btn small red" onclick="tLogout()">🚪 Đăng xuất</button></div>
     <h2>👨‍🏫 Khu vực giáo viên</h2>
     <div class="tabs">
       <button class="tab on" id="tabRoom" onclick="SFX.click();tTab('room')">🚀 Tạo phòng</button>
