@@ -92,6 +92,40 @@
   .footer a{ color:#2b4fe0; font-weight:700; text-decoration:none; }
   .footer a:hover{ text-decoration:underline; }
   .loginbox{ max-width:380px; margin:0 auto; }
+  /* ===== Nút chọn giao diện ===== */
+  .themepick{ display:flex; gap:10px; justify-content:center; margin:8px 0 4px; flex-wrap:wrap; }
+  .themebtn{ border:3px solid #c9d4f5; background:#eef2ff; border-radius:16px; padding:9px 16px;
+        font-weight:800; font-size:1.02rem; cursor:pointer; color:#1f2d5a; font-family:inherit; }
+  .themebtn.on{ border-color:#b5651d; background:#fff7dd; box-shadow:0 4px 0 #b5651d; }
+  .themebtn.locked{ opacity:.6; }
+  /* ===== GIAO DIỆN PHIÊU LƯU ===== */
+  body[data-gtheme="adventure"]{ --ink:#4a2f1b;
+        background:
+          radial-gradient(circle at 12% 18%, rgba(255,236,180,.22), transparent 42%),
+          radial-gradient(circle at 88% 78%, rgba(255,236,180,.16), transparent 46%),
+          linear-gradient(135deg,#2d5a1f,#6e5327 55%,#3a2a18); }
+  body[data-gtheme="adventure"] .card{ background:#fdf6e3; border:4px solid #8b5a2b;
+        box-shadow:0 12px 40px rgba(0,0,0,.45), inset 0 0 60px rgba(139,90,43,.10); }
+  body[data-gtheme="adventure"] .sub, body[data-gtheme="adventure"] .note{ color:#7a5a33; }
+  body[data-gtheme="adventure"] .pin{ color:#b5651d; text-shadow:0 3px 0 #f5e6c8; }
+  body[data-gtheme="adventure"] .btn{ background:linear-gradient(180deg,#d29a4b,#8b5a2b); box-shadow:0 6px 0 #5e3a1a; }
+  body[data-gtheme="adventure"] .btn:active{ box-shadow:0 2px 0 #5e3a1a; }
+  body[data-gtheme="adventure"] .btn.green{ background:linear-gradient(180deg,#4caf6d,#2a7a43); box-shadow:0 6px 0 #1a4d2a; }
+  body[data-gtheme="adventure"] .btn.red{ background:linear-gradient(180deg,#e07a5f,#b04a2f); box-shadow:0 6px 0 #6e2f1d; }
+  body[data-gtheme="adventure"] .pname{ background:#fff7dd; border-color:#c98a3d; }
+  body[data-gtheme="adventure"] .opt{ background:#fffdf4; border-color:#c98a3d; }
+  body[data-gtheme="adventure"] .opt.correct{ background:#d8ffe6; border-color:#1d9e52; }
+  body[data-gtheme="adventure"] .qimg{ border:4px solid #8b5a2b; }
+  body[data-gtheme="adventure"] .explain{ background:#fff7dd; border-color:#b5651d; }
+  body[data-gtheme="adventure"] .toolbar{ color:#ffe9b8; }
+  /* Bản đồ hành trình ở sảnh chờ */
+  .journey{ display:flex; align-items:center; justify-content:center; margin:16px 4px 6px; flex-wrap:wrap; row-gap:10px; }
+  .jstop{ width:52px; height:52px; border-radius:50%; background:#fffdf4; border:4px solid #8b5a2b;
+        display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:900;
+        color:#8b5a2b; position:relative; z-index:1; }
+  .jlink{ width:24px; border-top:5px dashed #8b5a2b; margin:0 -3px; }
+  .jflag{ font-size:2rem; }
+  .jcap{ font-size:.85rem; color:#7a5a33; font-weight:700; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -244,6 +278,16 @@ function fxTick(){
 let sb=null, mode=null, room=null, players=[], answers=[];
 let myPlayer=null, myAnswer=null, timerInt=null, channel=null, channel2=null, lastTick=99, locking=false;
 let bank=[], aiResult=null, editingQ=null, bankReadOnly=false;
+let roomTheme="classic"; // giao diện phòng sắp tạo: classic | adventure
+function canAdventure(){ const s=sess(); return !!s; } // đã đăng nhập (trial/paid/admin) là được dùng
+function pickTheme(t){
+  if(t==="adventure"&&!canAdventure()){ alert("Thầy đăng nhập tài khoản để mở giao diện Phiêu lưu nhé! (Tài khoản dùng thử cũng được.)"); return; }
+  roomTheme=t; SFX.click();
+  document.querySelectorAll(".themebtn").forEach(b=>b.classList.toggle("on",b.dataset.theme===t));
+}
+function applyTheme(){
+  document.body.dataset.gtheme=((room&&room.theme)||"classic")==="adventure"?"adventure":"classic";
+}
 const app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 /* ---- Phiên đăng nhập & phân quyền (trial 7 ngày / paid / owner) ---- */
@@ -283,7 +327,7 @@ function typeTag(q){ return q.type==="truefalse"?'<span class="tag">Đúng/Sai</
 
 /* ================= MÀN HÌNH CHUNG ================= */
 function showHome(){
-  mode=null;
+  mode=null; document.body.dataset.gtheme="classic";
   app.innerHTML=`<div class="card">
     <h1>🎯 Trắc nghiệm trực tiếp</h1>
     <p class="sub">Chơi cùng cả lớp theo thời gian thực — kiểu Kahoot!</p>
@@ -408,10 +452,20 @@ async function loadBank(){
 }
 function tRoomTab(){
   loadBank().then(()=>{
+    roomTheme="classic";
     const sets=bank.map(s=>`<option value="${s.id}">${esc(s.set_name)} (${s.questions.length} câu)</option>`).join("");
+    const advBtn=canAdventure()
+      ? `<button class="themebtn" data-theme="adventure" onclick="pickTheme('adventure')">🗺️ Phiêu lưu</button>`
+      : `<button class="themebtn locked" data-theme="adventure" onclick="pickTheme('adventure')">🔒 Phiêu lưu</button>`;
     document.getElementById("tBody").innerHTML=`
       <p class="sub">Chọn bộ đề rồi tạo phòng — mã PIN hiện thật to để cả lớp nhập.</p>
       <p><select id="setSel">${sets}</select></p>
+      <p style="margin:.4em 0 .1em"><b>🎨 Giao diện phòng:</b></p>
+      <div class="themepick">
+        <button class="themebtn on" data-theme="classic" onclick="pickTheme('classic')">📝 Cổ điển</button>
+        ${advBtn}
+      </div>
+      ${canAdventure()?"":`<p class="note">🔒 Đăng nhập để mở giao diện <b>Phiêu lưu</b> (tài khoản dùng thử cũng được).</p>`}
       <button class="btn big green" onclick="tCreateRoom()">🚀 Tạo phòng</button><br>
       <button class="btn small" onclick="showTeacherRejoin()">🔑 Vào lại phòng cũ bằng PIN</button>`;
   });
@@ -677,7 +731,13 @@ async function tCreateRoom(){
   for(let t=0;t<20;t++){ pin=String(Math.floor(100000+Math.random()*900000));
     const {data}=await sb.from("rooms").select("id").eq("pin",pin).limit(1);
     if(!data||!data.length) break; }
-  const {data,error}=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:s.questions}).select().single();
+  const theme=canAdventure()?roomTheme:"classic";
+  let res=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:s.questions,theme}).select().single();
+  if(res.error&&/theme/i.test(res.error.message||"")){
+    // chưa chạy migration v4 (thiếu cột theme) → tạo phòng kiểu cổ điển
+    res=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:s.questions}).select().single();
+  }
+  const {data,error}=res;
   if(error){ alert("Lỗi tạo phòng: "+error.message); return; }
   room=data; players=[]; answers=[]; lockedOnce=false;
   SFX.join(); tLobby();
@@ -701,10 +761,18 @@ async function tRejoin(){
   else tPodium();
 }
 function tLobby(){
-  LobbyMusic.start();
+  LobbyMusic.start(); applyTheme();
+  const adv=document.body.dataset.gtheme==="adventure";
+  const n=room.question_set.length;
+  const journey=adv?`<h3>🗺️ Bản đồ nhiệm vụ</h3>
+    <div class="journey"><span class="jflag">🏁</span>${Array.from({length:n},(_,i)=>`<span class="jlink"></span><span class="jstop">${i+1}</span>`).join("")}<span class="jlink"></span><span class="jflag">🏆</span></div>
+    <div class="jcap">${n} chặng thám hiểm đang chờ biệt đội!</div>`:"";
+  const subHtml=adv?"Thám hiểm viên mở link game rồi nhập <b>mật mã</b> này!"
+    :`Học sinh mở <b>${esc(location.host+location.pathname)}</b> rồi nhập PIN này`;
   app.innerHTML=`<div class="card">
-    <h2>🔑 Mã PIN phòng</h2><div class="pin">${room.pin}</div>
-    <p class="sub">Học sinh mở <b>${esc(location.host+location.pathname)}</b> rồi nhập PIN này</p>
+    <h2>${adv?"🧭 Mật mã lên đường":"🔑 Mã PIN phòng"}</h2><div class="pin">${room.pin}</div>
+    <p class="sub">${subHtml}</p>
+    ${journey}
     <h3>🎒 Đã vào: <span id="pcount">0</span> bạn</h3>
     <div class="plist" id="plist"></div><br>
     <button class="btn big green" id="startBtn" onclick="tStartQ()" disabled>▶ Bắt đầu (chờ học sinh...)</button><br>
@@ -729,7 +797,7 @@ async function tStartQ(){
   tQuestion();
 }
 function tQuestion(){
-  const q=qNow(); if(!q) return;
+  const q=qNow(); if(!q) return; applyTheme();
   const idx=room.current, total=room.question_set.length;
   const letters=["A","B","C","D"], order=optOrder(q);
   app.innerHTML=`<div class="card">
@@ -773,7 +841,7 @@ async function tLock(){
   tShowReveal();
 }
 async function tShowReveal(){
-  const q=qNow(); if(!q) return;
+  const q=qNow(); if(!q) return; applyTheme();
   const idx=room.current;
   try{
     const {data}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",idx);
@@ -814,11 +882,12 @@ async function tNext(){
   }
 }
 function tPodium(){
-  unsubAll();
+  unsubAll(); applyTheme();
+  const advT=document.body.dataset.gtheme==="adventure";
   const s=[...players].sort((a,b)=>b.score-a.score);
   const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
   app.innerHTML=`<div class="card">
-    <h1>🏆 Vinh danh</h1>
+    <h1>${advT?"🗺️ Chuyến phiêu lưu hoàn thành!":"🏆 Vinh danh"}</h1>
     <div class="podium">${step(s[1],"s2","🥈")}${step(s[0],"s1","🥇")}${step(s[2],"s3","🥉")}</div>
     <h3>📋 Cả lớp</h3>${scoreTable()}
     <button class="btn big" onclick="showTeacher()">🏠 Về trang giáo viên</button>
@@ -871,11 +940,15 @@ function onRoomChange(){
   else if(room.phase==="podium"){ sPodium(); }
 }
 function sLobby(){
-  app.innerHTML=`<div class="card"><h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
-    <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p><span class="spin"></span></div>`;
+  applyTheme();
+  const adv=document.body.dataset.gtheme==="adventure";
+  app.innerHTML=`<div class="card">${adv?`<h2>🧭 Sẵn sàng lên đường, <b>${esc(myPlayer.name)}</b>!</h2>
+    <p class="sub">Em đã gia nhập biệt đội. Chờ thầy bắt đầu chuyến phiêu lưu nhé...</p>`
+    :`<h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
+    <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span></div>`;
 }
 function sQuestion(){
-  const q=qNow(); if(!q) return;
+  const q=qNow(); if(!q) return; applyTheme();
   const letters=["A","B","C","D"], order=optOrder(q);
   app.innerHTML=`<div class="card">
     <div class="note">Câu ${room.current+1}/${room.question_set.length}</div>
@@ -899,7 +972,7 @@ async function sAnswer(d){
 }
 async function sReveal(){
   if(timerInt) clearInterval(timerInt);
-  const q=qNow(); if(!q) return;
+  const q=qNow(); if(!q) return; applyTheme();
   const ok=myAnswer!==null&&myAnswer===q.correct;
   const {data}=await sb.from("players").select("score").eq("id",myPlayer.id).single();
   const sc=data?data.score:0;
@@ -915,6 +988,7 @@ async function sReveal(){
     <p class="note">Chờ câu tiếp theo...</p></div>`;
 }
 function sPodium(){
+  applyTheme();
   sb.from("players").select("*").eq("room_id",room.id).order("score",{ascending:false}).then(({data})=>{
     const all=data||[];
     const me=all.find(p=>p.id===myPlayer.id);
