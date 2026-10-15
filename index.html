@@ -82,6 +82,10 @@
   .qrow .tag{ display:inline-block; font-size:.8rem; font-weight:800; background:#e0e7ff; color:#2b4fe0;
         border-radius:999px; padding:3px 10px; margin-right:6px; }
   .aimsg{ text-align:left; background:#f3efff; border:2px solid #b678f0; border-radius:14px; padding:12px 14px; margin:8px 0; }
+  .aiguide{ text-align:left; background:#f6f8ff; border:2px solid #c9d4f5; border-radius:14px; padding:10px 14px; margin:8px 0; }
+  .aiguide summary{ font-weight:800; cursor:pointer; color:#2b4fe0; }
+  .aiguide ol{ margin:8px 0; padding-left:22px; line-height:1.9; }
+  .aiguide a{ color:#2b4fe0; font-weight:700; }
   .aiprev{ text-align:left; }
   .aiprev label{ display:block; background:#f6f8ff; border:2px solid #c9d4f5; border-radius:12px; padding:10px 12px; margin:8px 0; cursor:pointer; }
   .spin{ display:inline-block; width:26px; height:26px; border:4px solid #c9d4f5; border-top-color:#2b4fe0;
@@ -345,7 +349,7 @@ function planBadge(s){
   if(!s) return "";
   if(s.plan==="owner") return `👑 <b>Admin</b>`;
   if(s.plan==="paid") return `👤 ${esc(s.u)} • <b style="color:#1d9e52">Bản thương mại</b>`;
-  return `👤 ${esc(s.u)} • <b style="color:#b5651d">Dùng thử</b>`;
+  return `👤 ${esc(s.u)} • <b style="color:#b5651d">Dùng thử full tính năng</b>`;
 }
 function goHome(){ location.reload(); }
 function qNow(){ return (room&&room.question_set&&room.question_set[room.current])||null; }
@@ -438,7 +442,7 @@ function tLogout(){ sessionStorage.removeItem("tq_sess"); pendingTab=null; SFX.c
 function showTeacherMain(afterTab){
   mode="teacher";
   const s=sess();
-  const canBank=!!s, canAI=!!s&&s.plan!=="trial";
+  const canBank=!!s, canAI=!!s; // bản dùng thử được dùng FULL tính năng
   app.innerHTML=`<div class="card">
     ${s?`<div style="display:flex;justify-content:space-between;align-items:center"><span class="note">${planBadge(s)}</span><button class="btn small red" onclick="tLogout()">🚪 Đăng xuất</button></div>`:""}
     <h2>👨‍🏫 Khu vực giáo viên</h2>
@@ -469,21 +473,6 @@ async function tTab(which){
       <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
       <div id="loginErr" style="margin:6px 0"></div>
       <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
-    </div>`;
-    return;
-  }
-  // Tài khoản dùng thử: không được dùng AI (chỉ thêm từng câu hỏi)
-  const s0=sess();
-  if(which==="ai"&&s0&&s0.plan==="trial"){
-    document.getElementById("tBody").innerHTML=`<div class="loginbox">
-      <h3>🤖 AI tạo câu hỏi — Bản trả phí</h3>
-      <p class="sub">Tài khoản <b>${esc(s0.u)}</b> đang dùng <b>bản dùng thử</b> (chỉ thêm từng câu hỏi).<br>
-      Nâng cấp lên <b>bản thương mại</b> để dùng chatbot AI sinh câu hỏi hàng loạt.<br>
-      Liên hệ thầy <b>Nhật Phong</b>:
-      <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook</a>
-      &nbsp;•&nbsp;
-      <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a></p>
-      ${trialDaysLeft(s0)}
     </div>`;
     return;
   }
@@ -528,11 +517,13 @@ function tRoomTab(){
 
 <script>
 /* ================= NGÂN HÀNG CÂU HỎI ================= */
+function isDefaultSet(s){ return !!(s&&s.set_name&&String(s.set_name).startsWith("📌")); } // bộ đề mặc định: không sửa/xóa
 function tBankTab(){
   loadBank().then(()=>{
-    const items=bank.map(s=>`<div class="bankitem"><div><b>${esc(s.set_name)}</b><br><span class="note">${s.questions.length} câu hỏi</span></div>
-      <div><button class="btn small" onclick="tSetDetail('${s.id}')">✏️ Sửa</button>
-      ${bankReadOnly?"":`<button class="btn small red" onclick="tDelSet('${s.id}')">🗑️</button>`}</div></div>`).join("");
+    const items=bank.map(s=>{ const def=isDefaultSet(s);
+      return `<div class="bankitem"><div><b>${esc(s.set_name)}</b>${def?` <span class="tag">📌 Mặc định</span>`:""}<br><span class="note">${s.questions.length} câu hỏi</span></div>
+      <div><button class="btn small" onclick="tSetDetail('${s.id}')">${def?"👁️ Xem":"✏️ Sửa"}</button>
+      ${bankReadOnly||def?"":`<button class="btn small red" onclick="tDelSet('${s.id}')">🗑️</button>`}</div></div>`; }).join("");
     document.getElementById("tBody").innerHTML=`
       ${bankReadOnly?`<div class="cfgwarn">⚠️ Chưa kết nối được bảng ngân hàng (thầy chạy file <b>supabase-v2-migration.sql</b> trong SQL Editor rồi tải lại trang để bật chế độ đầy đủ).</div>`:""}
       <div style="text-align:left;max-width:640px;margin:0 auto">${items||'<p class="note">Chưa có bộ đề nào.</p>'}</div>
@@ -549,31 +540,34 @@ async function tNewSet(){
 }
 async function tDelSet(id){
   const s=bank.find(x=>x.id===id);
+  if(isDefaultSet(s)){ alert("📌 Bộ đề mặc định không thể xóa."); return; }
   if(!confirm(`Xóa bộ đề "${s?s.set_name:""}"?`)) return;
   if(!String(id).startsWith("fb")) await sb.from("question_bank").delete().eq("id",id);
   bank=bank.filter(x=>x.id!==id); tBankTab();
 }
 function tSetDetail(id){
   const s=bank.find(x=>x.id===id); if(!s) return;
+  const def=isDefaultSet(s);
   const rows=s.questions.map((q,i)=>`<div class="qrow">${typeTag(q)}<b>Câu ${i+1}:</b> ${esc(q.q)}
-    ${bankReadOnly?"":`<div style="margin-top:8px"><button class="btn small" onclick="tQForm('${id}',${i})">✏️ Sửa</button>
+    ${bankReadOnly||def?"":`<div style="margin-top:8px"><button class="btn small" onclick="tQForm('${id}',${i})">✏️ Sửa</button>
     <button class="btn small red" onclick="tQDel('${id}',${i})">🗑️ Xóa</button></div>`}</div>`).join("");
   document.getElementById("tBody").innerHTML=`
-    <h3>📚 ${esc(s.set_name)} (${s.questions.length} câu)</h3>
+    <h3>📚 ${esc(s.set_name)} (${s.questions.length} câu)${def?` <span class="tag">📌 Mặc định</span>`:""}</h3>
+    ${def?`<p class="note">📌 Bộ đề mặc định của hệ thống — không thể sửa, xóa hay thêm câu hỏi.</p>`:""}
     <div style="text-align:left;max-width:640px;margin:0 auto">${rows||'<p class="note">Chưa có câu hỏi nào.</p>'}</div>
-    ${bankReadOnly?"":(()=>{ const s0=sess(); const canBulk=s0&&(s0.plan==="paid"||s0.plan==="owner");
-      return `<button class="btn green" onclick="tQForm('${id}',-1)">➕ Thêm câu hỏi</button>`
-        +(canBulk?` <button class="btn purple" onclick="tBulkForm('${id}')">📥 Nhập hàng loạt</button>`
-                 :` <p class="note">💡 <b>Bản thương mại</b> mới nhập được hàng loạt.</p>`); })()}
+    ${bankReadOnly||def?"":`<button class="btn green" onclick="tQForm('${id}',-1)">➕ Thêm câu hỏi</button>
+      <button class="btn purple" onclick="tBulkForm('${id}')">📥 Nhập hàng loạt</button>`}
     <button class="btn" onclick="tBankTab()">← Về danh sách</button>`;
 }
 function tQDel(sid,i){
   const s=bank.find(x=>x.id===sid);
+  if(isDefaultSet(s)){ alert("📌 Bộ đề mặc định không thể xóa câu hỏi."); return; }
   if(!confirm("Xóa câu hỏi này?")) return;
   s.questions.splice(i,1); tQSave(sid);
 }
 async function tQSave(sid){
   const s=bank.find(x=>x.id===sid);
+  if(isDefaultSet(s)){ alert("📌 Bộ đề mặc định không thể sửa."); tSetDetail(sid); return; }
   if(!String(sid).startsWith("fb")) await sb.from("question_bank").update({questions:s.questions}).eq("id",sid);
   tSetDetail(sid);
 }
@@ -650,7 +644,7 @@ function tQSubmit(){
   if(i>=0) s.questions[i]=q; else s.questions.push(q);
   SFX.correct(); tQSave(sid);
 }
-/* ---- Nhập hàng loạt (chỉ bản thương mại) ---- */
+/* ---- Nhập hàng loạt ---- */
 function tBulkForm(sid){
   const s=bank.find(x=>x.id===sid); if(!s) return;
   document.getElementById("tBody").innerHTML=`
@@ -674,6 +668,7 @@ function tBulkSample(){
 }
 function tBulkSubmit(sid){
   const s=bank.find(x=>x.id===sid); if(!s) return;
+  if(isDefaultSet(s)){ alert("📌 Bộ đề mặc định không thể thêm câu hỏi."); return; }
   let arr;
   try{ arr=JSON.parse(document.getElementById("bulkText").value); if(!Array.isArray(arr)) throw 0; }
   catch(e){ document.getElementById("bulkErr").innerHTML=`<div class="cfgwarn">⚠️ Nội dung chưa đúng định dạng JSON. Bấm "Xem mẫu" để tham khảo nhé!</div>`; return; }
@@ -703,8 +698,18 @@ function tAITab(){
   document.getElementById("tBody").innerHTML=`
     <div style="text-align:left;max-width:640px;margin:0 auto">
       <div class="aimsg">🤖 <b>Trợ lý AI tạo câu hỏi.</b> Thầy nhập ý tưởng (ví dụ: <i>"an toàn khi dùng mạng xã hội, lớp 4, 5 câu"</i>),
-      AI sẽ sinh câu hỏi trắc nghiệm + đúng/sai kèm giải thích. Thầy duyệt rồi lưu vào ngân hàng.<br><br>
-      🔑 Cần <b>Gemini API key miễn phí</b> (lấy 1 lần tại <b>aistudio.google.com/apikey</b>), dán vào ô dưới — key chỉ lưu trên máy thầy.</div>
+      AI sẽ sinh câu hỏi đủ 4 dạng (trắc nghiệm, đúng/sai, sắp xếp, điền từ) kèm giải thích. Thầy duyệt rồi lưu vào ngân hàng.<br><br>
+      🔑 Cần <b>Gemini API key miễn phí</b> — dán vào ô dưới, key chỉ lưu trên máy thầy.</div>
+      <details class="aiguide"><summary>📖 Cách lấy Gemini API key miễn phí (làm 1 lần, khoảng 2 phút)</summary>
+      <ol>
+        <li>Mở trang <b><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></b> rồi đăng nhập tài khoản Google (tài khoản Gmail thường là được).</li>
+        <li>Bấm nút <b>"Create API key"</b> (hoặc "Get API key").</li>
+        <li>Nếu được hỏi, chọn tạo key trong dự án có sẵn rồi bấm <b>Create</b>.</li>
+        <li>Bấm biểu tượng <b>copy</b> để sao chép dãy key vừa tạo.</li>
+        <li>Quay lại đây, <b>dán key vào ô "Gemini API key"</b> rồi dùng như bình thường.</li>
+      </ol>
+      <p class="note">🔒 Key này như mật khẩu riêng của thầy — đừng chia sẻ cho người khác. Nếu lỡ lộ, vào lại trang trên để xóa key cũ và tạo key mới.</p>
+      </details>
       <label><b>Gemini API key:</b></label><br>
       <input type="password" id="gKey" placeholder="Dán key vào đây..." value="${esc(key)}"><br>
       <label><b>Ý tưởng / chủ đề:</b></label>
@@ -780,7 +785,7 @@ function aiPreview(){
     <span class="note">${q.options.map((o,j)=>`${j===q.correct?"✅":"▫️"} ${esc(o)}`).join(" &nbsp; ")}</span>
     ${q.image_prompt?`<span class="imgprompt">🎨 Gợi ý ảnh: ${esc(q.image_prompt)} <br>→ Gửi prompt này vào chat với trợ lý để vẽ ảnh minh họa.</span>`:""}
   </label>`).join("");
-  const setOpts=bank.map(s=>`<option value="${s.id}">${esc(s.set_name)}</option>`).join("");
+  const setOpts=bank.filter(s=>!isDefaultSet(s)).map(s=>`<option value="${s.id}">${esc(s.set_name)}</option>`).join("");
   out.innerHTML=`<div class="aiprev"><h3>👀 Thầy duyệt câu hỏi (${aiResult.length} câu):</h3>${rows}
     <label><b>Lưu vào bộ đề:</b></label><br>
     <select id="aiSet">${setOpts}<option value="__new">➕ Tạo bộ đề mới...</option></select>
@@ -801,6 +806,7 @@ async function aiSave(){
     bank.push(data); sid=data.id;
   }
   const s=bank.find(x=>x.id===sid);
+  if(isDefaultSet(s)){ alert("📌 Không thể lưu vào bộ đề mặc định. Thầy chọn bộ đề khác hoặc tạo bộ mới nhé!"); return; }
   s.questions=s.questions.concat(kept);
   if(!String(sid).startsWith("fb")) await sb.from("question_bank").update({questions:s.questions}).eq("id",sid);
   SFX.fanfare(); fireworks(5);
