@@ -148,6 +148,11 @@
   .jstopmini{ position:absolute; top:50%; transform:translate(-50%,-58%); font-size:1.15rem; }
   .jmine{ margin:10px 0 4px; font-weight:800; }
   .jmine .jtrack{ margin-top:6px; }
+  /* ===== Xem tên HS theo đáp án ===== */
+  .whobox{ background:#f6f8ff; border:3px solid #4f7cff; border-radius:14px; padding:12px 14px; margin:12px 0; animation:pop .3s; }
+  .whobox.ok{ border-color:#1d9e52; background:#effff5; }
+  .whobox.bad{ border-color:#d63c3c; background:#fff5f5; }
+  .whobox .plist{ margin:8px 0 0; }
 </style>
 </head>
 <body>
@@ -321,6 +326,40 @@ function comboBonus(st){ return st>=2?(st-1)*25:0; }
 async function ensureAnsAll(){
   if(roomAnsAll.length||!room) return;
   try{ const r=await sb.from("answers").select("player_id,q_index,is_correct").eq("room_id",room.id); roomAnsAll=r.data||[]; }catch(e){}
+}
+function tWhoPicked(oi,kind){
+  const q=qNow(); if(!q) return;
+  const box=document.getElementById("whoBox"); if(!box) return;
+  const nm=a=>{ const p=players.find(x=>x.id===a.player_id); return p?p.name:"?"; };
+  let title="", rows=[], good=false;
+  if(kind==="choice"){
+    const order=optOrder(q), letters=["A","B","C","D"];
+    const disp=letters[order.indexOf(oi)]||"•";
+    good=(oi===q.correct);
+    title=`${good?"✅":"❌"} Đáp án ${disp}: ${esc(q.options[oi])} — <b>${answers.filter(a=>a.option_index===oi).length}</b> bạn`;
+    rows=answers.filter(a=>a.option_index===oi).map(a=>`<span class="pname">${esc(nm(a))}</span>`);
+  }else if(kind==="rofull"){
+    good=true;
+    const list=answers.filter(a=>a.is_correct);
+    title=`🎯 Xếp đúng hoàn toàn — <b>${list.length}</b> bạn`;
+    rows=list.map(a=>`<span class="pname">${esc(nm(a))}</span>`);
+  }else if(kind==="ropart"){
+    const list=answers.filter(a=>!a.is_correct);
+    title=`💪 Đúng một phần — <b>${list.length}</b> bạn`;
+    rows=list.map(a=>`<span class="pname">${esc(nm(a))} (${a.option_index||0}/${q.options.length})</span>`);
+  }else if(kind==="blfull"){
+    good=true;
+    const list=answers.filter(a=>a.is_correct);
+    title=`🎯 Trả lời đúng — <b>${list.length}</b> bạn`;
+    rows=list.map(a=>`<span class="pname">${esc(nm(a))}</span>`);
+  }else if(kind==="blwrong"){
+    const list=answers.filter(a=>!a.is_correct);
+    title=`😅 Chưa đúng — <b>${list.length}</b> bạn`;
+    rows=list.map(a=>`<span class="pname">${esc(nm(a))}</span>`);
+  }
+  box.innerHTML=`<div class="whobox ${good?"ok":"bad"}"><b>${title}</b><div class="plist">${rows.join("")||'<span class="note">Không có bạn nào.</span>'}</div></div>`;
+  box.scrollIntoView({block:"nearest",behavior:"smooth"});
+  SFX.click();
 }
 function journeyHtml(){
   if(document.body.dataset.gtheme!=="adventure"||!room) return "";
@@ -962,21 +1001,29 @@ async function tShowReveal(){
   let resultHtml="";
   if(q.type==="reorder"){
     const full=answers.filter(a=>a.is_correct).length;
+    const part=answers.length-full;
     resultHtml=`<div class="qtext" style="font-size:1.3rem">Thứ tự đúng:<br><b>${q.options.map((o,i)=>`${i+1}. ${esc(o)}`).join("<br>")}</b></div>
     <h3>📊 Kết quả</h3>
-    <div class="bar right"><div style="width:${answers.length?Math.max(8,Math.round(full/answers.length*100)):8}%">🎯 Đúng hoàn toàn: ${full}/${answers.length}</div></div>
-    <p class="note">Điểm tính theo số vị trí đúng (mỗi vị trí = ${Math.round(100/q.options.length)} điểm).</p>`;
+    <div class="bar right" onclick="tWhoPicked(0,'rofull')" style="cursor:pointer"><div style="width:${answers.length?Math.max(8,Math.round(full/answers.length*100)):8}%">🎯 Đúng hoàn toàn: ${full}/${answers.length}</div></div>
+    ${part?`<p class="note" onclick="tWhoPicked(0,'ropart')" style="cursor:pointer;text-decoration:underline">💪 ${part} bạn đúng một phần — bấm để xem tên</p>`:""}
+    <p class="note">Điểm tính theo số vị trí đúng (mỗi vị trí = ${Math.round(100/q.options.length)} điểm).</p>
+    <div id="whoBox"></div>`;
   } else if(q.type==="fillblank"){
     const full=answers.filter(a=>a.is_correct).length;
+    const wrong=answers.length-full;
     resultHtml=`<div class="qtext" style="font-size:1.3rem">Đáp án được chấp nhận: <b>${q.options.map(o=>esc(o)).join(" / ")}</b></div>
     <h3>📊 Kết quả</h3>
-    <div class="bar right"><div style="width:${answers.length?Math.max(8,Math.round(full/answers.length*100)):8}%">🎯 Trả lời đúng: ${full}/${answers.length}</div></div>`;
+    <div class="bar right" onclick="tWhoPicked(0,'blfull')" style="cursor:pointer"><div style="width:${answers.length?Math.max(8,Math.round(full/answers.length*100)):8}%">🎯 Trả lời đúng: ${full}/${answers.length}</div></div>
+    ${wrong?`<p class="note" onclick="tWhoPicked(0,'blwrong')" style="cursor:pointer;text-decoration:underline">😅 ${wrong} bạn chưa đúng — bấm để xem tên</p>`:""}
+    <div id="whoBox"></div>`;
   } else {
     const counts=q.options.map((_,i)=>answers.filter(a=>a.option_index===i).length);
     const maxC=Math.max(1,...counts);
-    resultHtml=`<div class="opts">${order.map((oi,d)=>`<div class="opt ${oi===q.correct?"correct":""}">${oi===q.correct?"✅":"▫️"} ${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
+    resultHtml=`<div class="opts">${order.map((oi,d)=>`<div class="opt ${oi===q.correct?"correct":""}" onclick="tWhoPicked(${oi},'choice')" style="cursor:pointer">${oi===q.correct?"✅":"▫️"} ${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
     <h3>📊 Cả lớp đã chọn</h3>
-    ${order.map((oi,d)=>`<div class="bar ${oi===q.correct?"right":""}"><div style="width:${Math.max(8,Math.round(counts[oi]/maxC*100))}%">${letters[d]||"•"}: ${counts[oi]}</div></div>`).join("")}`;
+    ${order.map((oi,d)=>`<div class="bar ${oi===q.correct?"right":""}" onclick="tWhoPicked(${oi},'choice')" style="cursor:pointer"><div style="width:${Math.max(8,Math.round(counts[oi]/maxC*100))}%">${letters[d]||"•"}: ${counts[oi]}</div></div>`).join("")}
+    <p class="note">👆 Bấm vào đáp án để xem tên các bạn đã chọn.</p>
+    <div id="whoBox"></div>`;
   }
   app.innerHTML=`<div class="card">
     <div class="note">Câu ${idx+1}/${total} — Kết quả (${answers.length} bạn đã trả lời)</div>
