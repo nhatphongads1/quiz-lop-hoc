@@ -132,6 +132,18 @@
   .jlink{ width:24px; border-top:5px dashed #8b5a2b; margin:0 -3px; }
   .jflag{ font-size:2rem; }
   .jcap{ font-size:.85rem; color:#7a5a33; font-weight:700; margin-top:2px; }
+  /* ===== GAME HÓA: combo + hành trình ===== */
+  .combo{ font-size:1.7rem; font-weight:900; color:#e06c00; margin:8px 0; text-shadow:0 2px 0 #ffe1b3; animation:pop .45s; }
+  .combo span{ display:block; font-size:1.02rem; color:#8b5a2b; font-weight:800; }
+  @keyframes pop{ 0%{transform:scale(.5)} 60%{transform:scale(1.18)} 100%{transform:scale(1)} }
+  .streak{ background:#fff1d6; border:2px solid #e0a800; border-radius:999px; padding:1px 8px; font-size:.82rem; font-weight:800; white-space:nowrap; }
+  .jlane{ display:flex; align-items:center; gap:8px; margin:8px 0; }
+  .jwho{ min-width:104px; max-width:140px; text-align:left; font-weight:800; font-size:.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .jtrack{ position:relative; flex:1; height:44px; background:rgba(255,255,255,.55); border:3px dashed #8b5a2b; border-radius:999px; }
+  .jtoken{ position:absolute; top:50%; transform:translate(-50%,-58%); font-size:1.7rem; transition:left .9s ease; }
+  .jstopmini{ position:absolute; top:50%; transform:translate(-50%,-58%); font-size:1.15rem; }
+  .jmine{ margin:10px 0 4px; font-weight:800; }
+  .jmine .jtrack{ margin-top:6px; }
 </style>
 </head>
 <body>
@@ -293,6 +305,31 @@ function pickTheme(t){
 }
 function applyTheme(){
   document.body.dataset.gtheme=((room&&room.theme)||"classic")==="adventure"?"adventure":"classic";
+}
+/* ===== GAME HÓA: combo + hành trình ===== */
+let roomAnsAll=[], streakMap={}; // mọi đáp án trong phòng + streak từng bạn
+function streakOf(rows,cur){
+  let st=0;
+  for(let i=cur;i>=0;i--){ const a=rows.find(r=>r.q_index===i); if(a&&a.is_correct) st++; else break; }
+  return st;
+}
+function comboBonus(st){ return st>=2?(st-1)*25:0; }
+async function ensureAnsAll(){
+  if(roomAnsAll.length||!room) return;
+  try{ const r=await sb.from("answers").select("player_id,q_index,is_correct").eq("room_id",room.id); roomAnsAll=r.data||[]; }catch(e){}
+}
+function journeyHtml(){
+  if(document.body.dataset.gtheme!=="adventure"||!room) return "";
+  const n=room.question_set.length; if(!n) return "";
+  const cc={}; roomAnsAll.forEach(r=>{ if(r.is_correct) cc[r.player_id]=(cc[r.player_id]||0)+1; });
+  const top=[...players].sort((a,b)=>b.score-a.score).slice(0,3);
+  if(!top.length) return "";
+  const medals=["🥇","🥈","🥉"], toks=["🧑‍🎓","👧","👦"];
+  const lanes=top.map((p,i)=>{
+    const pct=Math.round(Math.min(n,cc[p.id]||0)/n*100);
+    return `<div class="jlane"><span class="jwho">${medals[i]} ${esc(p.name)}</span><div class="jtrack"><span class="jstopmini" style="left:4%">🏁</span><span class="jstopmini" style="left:96%">🏆</span><span class="jtoken" style="left:${4+pct*0.92}%">${toks[i]}</span></div></div>`;
+  }).join("");
+  return `<h3>🗺️ Hành trình thám hiểm</h3>${lanes}`;
 }
 const app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -793,7 +830,7 @@ async function tCreateRoom(){
   }
   const {data,error}=res;
   if(error){ alert("Lỗi tạo phòng: "+error.message); return; }
-  room=data; players=[]; answers=[]; lockedOnce=false;
+  room=data; players=[]; answers=[]; lockedOnce=false; roomAnsAll=[]; streakMap={};
   SFX.join(); tLobby();
 }
 function showTeacherRejoin(){
@@ -806,7 +843,7 @@ async function tRejoin(){
   const pin=document.getElementById("rePin").value.trim();
   const {data}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1);
   if(!data||!data.length){ alert("Không tìm thấy phòng với PIN này!"); return; }
-  unsubAll(); room=data[0]; lockedOnce=false;
+  unsubAll(); room=data[0]; lockedOnce=false; roomAnsAll=[]; streakMap={};
   const {data:pl}=await sb.from("players").select("*").eq("room_id",room.id).order("created_at");
   players=pl||[];
   if(room.phase==="lobby") tLobby();
@@ -886,15 +923,19 @@ async function tLock(){
   const idx=room.current, q=qNow();
   const {data:ans}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",idx);
   answers=ans||[];
+  try{ const r=await sb.from("answers").select("player_id,q_index,is_correct").eq("room_id",room.id); roomAnsAll=r.data||[]; }catch(e){}
   const pmap={}; players.forEach(p=>pmap[p.id]=p);
+  streakMap={};
+  for(const p of players) streakMap[p.id]=streakOf(roomAnsAll.filter(x=>x.player_id===p.id),idx);
   for(const a of answers){
     if(!pmap[a.player_id]) continue;
     const bonus=Math.max(0,Math.round(50*(1-a.ms/(QUESTION_TIME*1000))));
+    const combo=comboBonus(streakMap[a.player_id]||0);
     if(q.type==="reorder"){
       const frac=Math.max(0,Math.min(1,(a.option_index||0)/q.options.length));
-      if(frac>0) pmap[a.player_id].score+=Math.round(100*frac)+(a.is_correct?bonus:0);
+      if(frac>0) pmap[a.player_id].score+=Math.round(100*frac)+(a.is_correct?bonus+combo:0);
     } else if(a.is_correct){
-      pmap[a.player_id].score+=100+bonus;
+      pmap[a.player_id].score+=100+bonus+combo;
     }
   }
   for(const p of players) await sb.from("players").update({score:p.score}).eq("id",p.id);
@@ -904,6 +945,7 @@ async function tLock(){
 }
 async function tShowReveal(){
   const q=qNow(); if(!q) return; applyTheme();
+  await ensureAnsAll();
   const idx=room.current;
   try{
     const {data}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",idx);
@@ -934,6 +976,7 @@ async function tShowReveal(){
     <div class="note">Câu ${idx+1}/${total} — Kết quả (${answers.length} bạn đã trả lời)</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
     ${resultHtml}
+    ${journeyHtml()}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <h3>🏅 Bảng điểm</h3>${scoreTable()}
     <button class="btn big green" onclick="tNext()">${last?"🏁 Xem vinh danh":"Câu tiếp theo ➡"}</button>
@@ -942,7 +985,8 @@ async function tShowReveal(){
 function scoreTable(){
   const s=[...players].sort((a,b)=>b.score-a.score);
   if(!s.length) return `<p class="note">Chưa có học sinh.</p>`;
-  return `<table class="score">${s.map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b></td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>`;
+  return `<table class="score">${s.map((p,i)=>{ const st=streakMap[p.id]||0;
+    return `<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${st>=2?` <span class="streak">🔥x${st}</span>`:""}</td><td><b>${p.score}</b> đ</td></tr>`; }).join("")}</table>`;
 }
 async function tNext(){
   SFX.click(); lockedOnce=false;
@@ -963,8 +1007,10 @@ function tPodium(){
   const advT=document.body.dataset.gtheme==="adventure";
   const s=[...players].sort((a,b)=>b.score-a.score);
   const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
+  const treasure=advT&&s[0]?`<p class="sub">🎁 <b>${esc(s[0].name)}</b> mở <b>Rương VÀNG</b>!${s[1]?` • <b>${esc(s[1].name)}</b> mở <b>Rương Bạc</b>`:""}${s[2]?` • <b>${esc(s[2].name)}</b> mở <b>Rương Đồng</b>`:""}</p>`:"";
   app.innerHTML=`<div class="card">
     <h1>${advT?"🗺️ Chuyến phiêu lưu hoàn thành!":"🏆 Vinh danh"}</h1>
+    ${treasure}
     <div class="podium">${step(s[1],"s2","🥈")}${step(s[0],"s1","🥇")}${step(s[2],"s3","🥉")}</div>
     <h3>📋 Cả lớp</h3>${scoreTable()}
     <button class="btn big" onclick="showTeacher()">🏠 Về trang giáo viên</button>
@@ -1129,10 +1175,22 @@ async function sReveal(){
   const sc=data?data.score:0;
   const {data:all}=await sb.from("players").select("score").eq("room_id",room.id).order("score",{ascending:false});
   const rank=(all||[]).filter(p=>p.score>sc).length+1;
-  if(ok){ SFX.correct(); boom(innerWidth/2,innerHeight/3,50); } else SFX.wrong();
+  let myStreak=0, myCorrect=0;
+  try{
+    const {data:mine}=await sb.from("answers").select("q_index,is_correct").eq("player_id",myPlayer.id).order("q_index");
+    myStreak=streakOf(mine||[],room.current);
+    myCorrect=(mine||[]).filter(r=>r.is_correct).length;
+  }catch(e){}
+  const comboHtml=myStreak>=2?`<div class="combo">🔥 Combo x${myStreak}! <span>+${comboBonus(myStreak)} điểm thưởng</span></div>`:"";
+  const adv=document.body.dataset.gtheme==="adventure";
+  const nQ=room.question_set.length;
+  const journeyMine=adv?`<div class="jmine">🗺️ Em đang ở <b>chặng ${myCorrect}/${nQ}</b><div class="jtrack"><span class="jstopmini" style="left:4%">🏁</span><span class="jstopmini" style="left:96%">🏆</span><span class="jtoken" style="left:${4+Math.round(myCorrect/nQ*100)*0.92}%">🧑‍🎓</span></div></div>`:"";
+  if(ok){ if(myStreak>=3) SFX.fanfare(); else SFX.correct(); boom(innerWidth/2,innerHeight/3,50); } else SFX.wrong();
   app.innerHTML=`<div class="card">
     <h2>${myAnswer===null?"⏰ Hết giờ!":ok?"🎉 Đúng rồi!":"😅 Chưa đúng"}</h2>
+    ${comboHtml}
     <div class="qtext" style="font-size:1.25rem">${rightHtml}</div>
+    ${journeyMine}
     ${qImg(q)}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <p class="sub">Điểm của em: <b>${sc}</b> • Xếp hạng: <b>${rank}</b></p>
