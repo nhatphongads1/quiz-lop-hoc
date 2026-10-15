@@ -153,6 +153,15 @@
   .whobox.ok{ border-color:#1d9e52; background:#effff5; }
   .whobox.bad{ border-color:#d63c3c; background:#fff5f5; }
   .whobox .plist{ margin:8px 0 0; }
+  /* ===== Vòng quay may mắn ===== */
+  .spinpanel{ background:linear-gradient(180deg,#fff7dd,#ffe6ad); border:4px solid #b5651d; border-radius:18px; padding:14px; margin:14px 0; animation:pop .4s; }
+  .spinpanel h3{ margin:.2em 0; color:#b5651d; font-size:1.35rem; }
+  .spinwin{ font-size:1.7rem; font-weight:900; color:#1d9e52; animation:pop .5s; }
+  .spinwin span{ display:block; font-size:2.6rem; color:#e06c00; margin:6px 0; }
+  #toast{ position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2d5a; color:#fff;
+    padding:12px 24px; border-radius:999px; font-weight:800; font-size:1.05rem; opacity:0; transition:.3s; z-index:99; pointer-events:none;
+    box-shadow:0 6px 24px rgba(0,0,0,.35); max-width:92vw; }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -303,7 +312,7 @@ function fxTick(){
 
 /* ================= TRẠNG THÁI ================= */
 let sb=null, mode=null, room=null, players=[], answers=[];
-let myPlayer=null, myAnswer=null, timerInt=null, channel=null, channel2=null, lastTick=99, locking=false;
+let myPlayer=null, myAnswer=null, timerInt=null, channel=null, channel2=null, channel3=null, lastTick=99, locking=false;
 let bank=[], aiResult=null, editingQ=null, bankReadOnly=false;
 let roomTheme="classic"; // giao diện phòng sắp tạo: classic | adventure
 function canAdventure(){ const s=sess(); return !!s; } // đã đăng nhập (trial/paid/admin) là được dùng
@@ -856,7 +865,7 @@ async function aiSave(){
 <script>
 /* ================= GIÁO VIÊN: ĐIỀU KHIỂN PHÒNG ================= */
 let lockedOnce=false;
-function unsubAll(){ [channel,channel2].forEach(c=>{try{c&&c.unsubscribe()}catch(e){}}); channel=channel2=null; if(timerInt){clearInterval(timerInt);timerInt=null;} }
+function unsubAll(){ [channel,channel2,channel3].forEach(c=>{try{c&&c.unsubscribe()}catch(e){}}); channel=channel2=channel3=null; if(timerInt){clearInterval(timerInt);timerInt=null;} }
 async function tCreateRoom(){
   SFX.click();
   const sid=document.getElementById("setSel").value;
@@ -1031,9 +1040,21 @@ async function tShowReveal(){
     ${resultHtml}
     ${journeyHtml()}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
-    <h3>🏅 Bảng điểm</h3>${scoreTable()}
+    <h3>🏅 Bảng điểm</h3><div id="scoreWrap">${scoreTable()}</div>
     <button class="btn big green" onclick="tNext()">${last?"🏁 Xem vinh danh":"Câu tiếp theo ➡"}</button>
   </div>`;
+  // Theo dõi vòng quay may mắn của HS: điểm tăng trong lúc chốt = vừa quay trúng
+  try{ channel3&&channel3.unsubscribe(); }catch(e){}
+  channel3=sb.channel("tspin-"+room.id+"-"+idx)
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"players",filter:"room_id=eq."+room.id},payload=>{
+      const p=players.find(x=>x.id===payload.new.id); if(!p) return;
+      const delta=payload.new.score-p.score; p.score=payload.new.score;
+      if(delta>0){
+        const w=document.getElementById("scoreWrap"); if(w) w.innerHTML=scoreTable();
+        toast(`🎡 <b>${esc(p.name)}</b> quay may mắn +${delta} điểm!`);
+        SFX.fanfare();
+      }
+    }).subscribe();
 }
 function scoreTable(){
   const s=[...players].sort((a,b)=>b.score-a.score);
@@ -1124,6 +1145,75 @@ function sLobby(){
     <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span></div>`;
 }
 let sOrd=[], sOrder=[]; // thứ tự hiển thị + thứ tự HS đã xếp (dạng reorder)
+/* ===== VÒNG QUAY MAY MẮN ===== */
+const SPIN_SEGS=[25,10,20,1,15,10,20,15]; // 8 ô — quay trúng cộng điểm
+const SPIN_EVERY=3; // cứ 3 câu đúng được 1 lượt quay
+let spinBusy=false, sSpinCorrect=0;
+function spinMilestoneKey(){ return "spinM_"+(room?room.id:""); }
+function spinLastMilestone(){ try{ return parseInt(localStorage.getItem(spinMilestoneKey())||"0")||0; }catch(e){ return 0; } }
+function spinSetMilestone(m){ try{ localStorage.setItem(spinMilestoneKey(),String(m)); }catch(e){} }
+function drawWheel(cv,ang){
+  const ctx=cv.getContext("2d"), W=cv.width, C=W/2, R=C-10, n=SPIN_SEGS.length;
+  ctx.clearRect(0,0,W,W);
+  ctx.save(); ctx.translate(C,C); ctx.rotate(ang);
+  const cols=["#ffd94d","#b678f0"];
+  for(let i=0;i<n;i++){
+    const a0=i/n*Math.PI*2, a1=(i+1)/n*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,R,a0,a1); ctx.closePath();
+    ctx.fillStyle=cols[i%2]; ctx.fill();
+    ctx.lineWidth=4; ctx.strokeStyle="#fff"; ctx.stroke();
+    ctx.save(); ctx.rotate((a0+a1)/2); ctx.textAlign="right"; ctx.textBaseline="middle";
+    ctx.fillStyle=i%2?"#fff":"#5e3a1a"; ctx.font="900 "+Math.round(W/13)+"px sans-serif";
+    ctx.fillText("+"+SPIN_SEGS[i], R-16, 0); ctx.restore();
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(C,C,W*0.10,0,7); ctx.fillStyle="#8b5a2b"; ctx.fill();
+  ctx.beginPath(); ctx.arc(C,C,W*0.065,0,7); ctx.fillStyle="#ffd94d"; ctx.fill();
+  ctx.fillStyle="#d63c3c"; // kim chỉ ở đỉnh
+  ctx.beginPath(); ctx.moveTo(C-13,6); ctx.lineTo(C+13,6); ctx.lineTo(C,30); ctx.closePath(); ctx.fill();
+}
+function sDoSpin(){
+  if(spinBusy) return;
+  const cv=document.getElementById("wheelCv"); if(!cv) return;
+  spinBusy=true;
+  const btn=document.getElementById("spinBtn"); if(btn){ btn.disabled=true; btn.textContent="🌀 Đang quay..."; }
+  const n=SPIN_SEGS.length;
+  const seg=Math.floor(Math.random()*n);
+  const jitter=Math.random()*24-12;
+  const target=((((270-(seg*360/n+360/n/2+jitter))%360)+360)%360)*Math.PI/180;
+  const ang=parseFloat(cv.dataset.ang||"0");
+  const norm=(((target-ang)%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+  const final=ang+Math.PI*2*6+norm;
+  const t0=performance.now(), DUR=4500;
+  let lastTick=0;
+  (function frame(t){
+    const p=Math.min(1,(t-t0)/DUR), e=1-Math.pow(1-p,5);
+    drawWheel(cv,ang+(final-ang)*e);
+    if(t-lastTick>240){ lastTick=t; SFX.tick(); }
+    if(p<1) requestAnimationFrame(frame);
+    else{ cv.dataset.ang=String(final%(Math.PI*2)); sSpinDone(SPIN_SEGS[seg]); }
+  })(t0);
+}
+async function sSpinDone(prize){
+  spinBusy=false;
+  const panel=document.getElementById("spinPanel"); if(!panel) return;
+  let newScore=null;
+  try{
+    const {data}=await sb.from("players").select("score").eq("id",myPlayer.id).single();
+    newScore=(data?data.score:0)+prize;
+    await sb.from("players").update({score:newScore}).eq("id",myPlayer.id);
+  }catch(e){}
+  spinSetMilestone(Math.floor(sSpinCorrect/SPIN_EVERY));
+  SFX.fanfare(); boom(innerWidth/2,innerHeight/3,60);
+  panel.innerHTML=`<div class="spinwin">🎉 Chúc mừng!<br><span>+${prize} điểm</span></div>
+    <p class="sub">${newScore!==null?`Tổng điểm của em: <b>${newScore}</b>`:"Điểm đã được cộng vào bảng xếp hạng!"}</p>`;
+}
+function toast(html){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+  t.innerHTML=html; t.classList.add("show");
+  clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove("show"),2800);
+}
 function sRenderOrder(){
   const q=qNow(); if(!q) return;
   const letters=["A","B","C","D"];
@@ -1238,16 +1328,28 @@ async function sReveal(){
   const adv=document.body.dataset.gtheme==="adventure";
   const nQ=room.question_set.length;
   const journeyMine=adv?`<div class="jmine">🗺️ Em đang ở <b>chặng ${myCorrect}/${nQ}</b><div class="jtrack"><span class="jstopmini" style="left:4%">🏁</span><span class="jstopmini" style="left:96%">🏆</span><span class="jtoken" style="left:${4+Math.round(myCorrect/nQ*100)*0.92}%">🧑‍🎓</span></div></div>`:"";
+  // Vòng quay may mắn: cứ 3 câu đúng được 1 lượt quay
+  const earnedSpin=Math.floor(myCorrect/SPIN_EVERY);
+  const canSpin=earnedSpin>spinLastMilestone()&&myAnswer!==null;
+  if(canSpin) sSpinCorrect=myCorrect;
+  const spinHtml=canSpin?`<div class="spinpanel" id="spinPanel">
+    <h3>🎡 VÒNG QUAY MAY MẮN!</h3>
+    <p class="sub">Em đã trả lời đúng <b>${myCorrect}</b> câu — được quay 1 lượt!<br>Trúng ô nào cộng ngay điểm ô đó.</p>
+    <canvas id="wheelCv" width="280" height="280" data-ang="0" style="max-width:280px;width:100%"></canvas><br>
+    <button class="btn big orange" id="spinBtn" onclick="sDoSpin()">🎡 QUAY NGAY</button>
+  </div>`:"";
   if(ok){ if(myStreak>=3) SFX.fanfare(); else SFX.correct(); boom(innerWidth/2,innerHeight/3,50); } else SFX.wrong();
   app.innerHTML=`<div class="card">
     <h2>${myAnswer===null?"⏰ Hết giờ!":ok?"🎉 Đúng rồi!":"😅 Chưa đúng"}</h2>
     ${comboHtml}
     <div class="qtext" style="font-size:1.25rem">${rightHtml}</div>
     ${journeyMine}
+    ${spinHtml}
     ${qImg(q)}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <p class="sub">Điểm của em: <b>${sc}</b> • Xếp hạng: <b>${rank}</b></p>
     <p class="note">Chờ câu tiếp theo...</p></div>`;
+  const wcv=document.getElementById("wheelCv"); if(wcv) drawWheel(wcv,0);
 }
 function sPodium(){
   applyTheme();
