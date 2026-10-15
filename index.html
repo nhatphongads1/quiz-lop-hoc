@@ -162,6 +162,27 @@
     padding:12px 24px; border-radius:999px; font-weight:800; font-size:1.05rem; opacity:0; transition:.3s; z-index:99; pointer-events:none;
     box-shadow:0 6px 24px rgba(0,0,0,.35); max-width:92vw; }
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  /* ===== Câu sắp xếp: kéo-thả ===== */
+  .sreorow{ display:flex; align-items:center; gap:10px; background:#fff; border:3px solid #4f7cff;
+    border-radius:14px; padding:10px 12px; margin:8px 0; font-size:1.15rem; font-weight:700;
+    cursor:grab; user-select:none; -webkit-user-select:none; touch-action:none; transition:transform .12s, border-color .12s; }
+  .sreorow.drag{ opacity:.9; box-shadow:0 8px 20px rgba(0,0,0,.28); cursor:grabbing; }
+  .sreorow.over{ border-color:#e06c00; background:#fff3df; }
+  .sreonum{ min-width:36px; height:36px; border-radius:50%; background:#4f7cff; color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:900; flex-shrink:0; }
+  .sreotxt{ flex:1; text-align:left; }
+  .sreobtns{ display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+  .sreobtns .btn{ padding:5px 11px; font-size:.95rem; }
+  /* ===== Nút QUAY giữa tâm vòng quay ===== */
+  .wheelwrap{ position:relative; display:inline-block; }
+  .wheelwrap canvas{ max-width:280px; width:100%; height:auto; display:block; }
+  .wheelcenter{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:88px; height:88px; border-radius:50%; border:4px solid #8b5a2b;
+    background:radial-gradient(circle at 35% 30%,#ffe9a8,#f0a020);
+    font-weight:900; font-size:1.2rem; color:#5e3a1a; cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.35); }
+  .wheelcenter:disabled{ opacity:.55; cursor:default; }
+  .wheelcenter:not(:disabled):active{ transform:translate(-50%,-50%) scale(.93); }
 </style>
 </head>
 <body>
@@ -1176,7 +1197,7 @@ function sDoSpin(){
   if(spinBusy) return;
   const cv=document.getElementById("wheelCv"); if(!cv) return;
   spinBusy=true;
-  const btn=document.getElementById("spinBtn"); if(btn){ btn.disabled=true; btn.textContent="🌀 Đang quay..."; }
+  const btn=document.getElementById("spinBtn"); if(btn){ btn.disabled=true; }
   const n=SPIN_SEGS.length;
   const seg=Math.floor(Math.random()*n);
   const jitter=Math.random()*24-12;
@@ -1214,25 +1235,80 @@ function toast(html){
   t.innerHTML=html; t.classList.add("show");
   clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove("show"),2800);
 }
-function sRenderOrder(){
+let reoDrag=null, reoDragOi=null; // kéo-thả câu sắp xếp
+function sRenderReorder(){
   const q=qNow(); if(!q) return;
-  const letters=["A","B","C","D"];
   const box=document.getElementById("sopts"); if(!box) return;
-  box.innerHTML=sOrd.map((oi,d)=>{
-    const pos=sOrder.indexOf(oi)+1;
-    return `<div class="opt${pos?" picked":""}" onclick="sPickOrder(${d})">${pos?`<span class="ordn">${pos}</span>`:""}${letters[d]||"•"}. ${esc(q.options[oi])}</div>`;
-  }).join("");
+  box.innerHTML=sOrder.map((oi,r)=>`
+    <div class="sreorow" data-r="${r}" draggable="true">
+      <span class="sreonum">${r+1}</span>
+      <span class="sreotxt">${esc(q.options[oi])}</span>
+      <span class="sreobtns">
+        <button class="btn small" onclick="sReoMove(${r},-1)" ${r===0?"disabled":""}>▲</button>
+        <button class="btn small" onclick="sReoMove(${r},1)" ${r===sOrder.length-1?"disabled":""}>▼</button>
+      </span>
+    </div>`).join("");
+  box.querySelectorAll(".sreorow").forEach(row=>{
+    row.addEventListener("dragstart",e=>{ reoDragOi=sOrder[+row.dataset.r]; row.classList.add("drag"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain","x");}catch(_){} });
+    row.addEventListener("dragend",()=>{ row.classList.remove("drag"); reoDragOi=null; });
+    row.addEventListener("dragover",e=>{ e.preventDefault(); row.classList.add("over"); });
+    row.addEventListener("dragleave",()=>row.classList.remove("over"));
+    row.addEventListener("drop",e=>{ e.preventDefault(); row.classList.remove("over"); sReoDrop(+row.dataset.r); });
+    row.addEventListener("touchstart",e=>sReoTS(e,row),{passive:true});
+    row.addEventListener("touchmove",e=>sReoTM(e,row),{passive:false});
+    row.addEventListener("touchend",()=>sReoTE());
+    row.addEventListener("touchcancel",()=>sReoTE());
+  });
 }
-function sPickOrder(d){
+function sReoMove(r,dir){
   if(myAnswer!==null) return;
-  const oi=sOrd[d]; if(oi===undefined||sOrder.includes(oi)) return;
-  sOrder.push(oi); SFX.click(); sRenderOrder();
+  const n=r+dir; if(n<0||n>=sOrder.length) return;
+  [sOrder[r],sOrder[n]]=[sOrder[n],sOrder[r]];
+  SFX.click(); sRenderReorder();
 }
-function sClearOrder(){ if(myAnswer!==null) return; sOrder=[]; SFX.click(); sRenderOrder(); }
+function sReoDrop(targetR){
+  if(myAnswer!==null||reoDragOi===null||reoDragOi===undefined) return;
+  const from=sOrder.indexOf(reoDragOi);
+  sOrder.splice(from,1);
+  let t=targetR; if(from<targetR) t=targetR-1;
+  sOrder.splice(Math.max(0,Math.min(sOrder.length,t)),0,reoDragOi);
+  reoDragOi=null; SFX.click(); sRenderReorder();
+}
+function sReoTS(e,row){
+  if(myAnswer!==null||e.target.closest("button")) return;
+  reoDrag={r:+row.dataset.r, y0:e.touches[0].clientY, row, ni:null};
+  row.classList.add("drag");
+}
+function sReoTM(e,row){
+  if(!reoDrag) return;
+  e.preventDefault();
+  const dy=e.touches[0].clientY-reoDrag.y0;
+  reoDrag.row.style.transform=`translateY(${dy}px)`;
+  reoDrag.row.style.zIndex="5";
+  const box=document.getElementById("sopts");
+  const rows=[...box.querySelectorAll(".sreorow")];
+  const h=reoDrag.row.offsetHeight||60;
+  let ni=Math.round(reoDrag.r+dy/h);
+  ni=Math.max(0,Math.min(rows.length-1,ni));
+  rows.forEach(x=>x.classList.remove("over"));
+  if(rows[ni]&&rows[ni]!==reoDrag.row) rows[ni].classList.add("over");
+  reoDrag.ni=ni;
+}
+function sReoTE(){
+  if(!reoDrag) return;
+  const {r,ni}=reoDrag;
+  reoDrag=null;
+  if(ni!==null&&ni!==undefined&&ni!==r){
+    const [oi]=sOrder.splice(r,1);
+    sOrder.splice(ni,0,oi);
+    SFX.click();
+  }
+  sRenderReorder();
+}
+function sResetOrder(){ if(myAnswer!==null) return; sOrder=[...sOrd]; SFX.click(); sRenderReorder(); }
 async function sSubmitOrder(auto){
   if(myAnswer!==null) return;
   const q=qNow(); if(!q) return;
-  if(!auto&&sOrder.length<q.options.length){ alert(`Em xếp đủ ${q.options.length} đáp án rồi bấm Xong nhé!`); return; }
   let cc=0; sOrder.forEach((oi,pos)=>{ if(oi===pos) cc++; });
   const ok=cc===q.options.length;
   myAnswer={t:"reorder",cc};
@@ -1265,10 +1341,10 @@ function sQuestion(){
   const letters=["A","B","C","D"], order=optOrder(q);
   let body="";
   if(q.type==="reorder"){
-    sOrd=order;
-    body=`<div class="note">🔢 Bấm các đáp án theo <b>đúng thứ tự</b> từ 1 đến ${q.options.length}</div>
+    sOrd=[...order]; sOrder=[...order];
+    body=`<div class="note">🔢 <b>Kéo thả</b> hoặc dùng nút <b>▲ ▼</b> để xếp các đáp án theo <b>đúng thứ tự</b> từ 1 đến ${q.options.length}</div>
       <div class="opts" id="sopts"></div>
-      <button class="btn small" onclick="sClearOrder()">↩️ Xếp lại</button>
+      <button class="btn small" onclick="sResetOrder()">↩️ Xếp lại từ đầu</button>
       <button class="btn big green" onclick="sSubmitOrder(false)">✅ Xong</button>`;
   } else if(q.type==="fillblank"){
     body=`<div class="note">✏️ Điền từ còn thiếu rồi bấm Trả lời</div>
@@ -1283,7 +1359,7 @@ function sQuestion(){
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
     ${body}
   </div>`;
-  if(q.type==="reorder") sRenderOrder();
+  if(q.type==="reorder") sRenderReorder();
   if(timerInt) clearInterval(timerInt);
   timerInt=setInterval(()=>{ const r=remain(); const e=document.getElementById("tmr");
     if(e){ e.textContent=r; e.classList.toggle("warn",r<=5); } if(r<=0){ clearInterval(timerInt); sTimeUp(); } },250);
@@ -1334,9 +1410,11 @@ async function sReveal(){
   if(canSpin) sSpinCorrect=myCorrect;
   const spinHtml=canSpin?`<div class="spinpanel" id="spinPanel">
     <h3>🎡 VÒNG QUAY MAY MẮN!</h3>
-    <p class="sub">Em đã trả lời đúng <b>${myCorrect}</b> câu — được quay 1 lượt!<br>Trúng ô nào cộng ngay điểm ô đó.</p>
-    <canvas id="wheelCv" width="280" height="280" data-ang="0" style="max-width:280px;width:100%"></canvas><br>
-    <button class="btn big orange" id="spinBtn" onclick="sDoSpin()">🎡 QUAY NGAY</button>
+    <p class="sub">Em đã trả lời đúng <b>${myCorrect}</b> câu — bấm vào <b>nút giữa vòng quay</b> để quay 1 lượt!<br>Trúng ô nào cộng ngay điểm ô đó.</p>
+    <div class="wheelwrap">
+      <canvas id="wheelCv" width="280" height="280" data-ang="0"></canvas>
+      <button class="wheelcenter" id="spinBtn" onclick="sDoSpin()">QUAY</button>
+    </div>
   </div>`:"";
   if(ok){ if(myStreak>=3) SFX.fanfare(); else SFX.correct(); boom(innerWidth/2,innerHeight/3,50); } else SFX.wrong();
   app.innerHTML=`<div class="card">
