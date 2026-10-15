@@ -196,6 +196,19 @@ function planBadge(s){
 }
 function goHome(){ location.reload(); }
 function qNow(){ return (room&&room.question_set&&room.question_set[room.current])||null; }
+/* ĐẢO ĐÁP ÁN: thứ tự đáp án hiển thị được xáo trộn NGẪU NHIÊN theo từng ván chơi (mỗi ván có room.id
+   khác nhau) và từng câu hỏi, nhưng GIỐNG NHAU trên máy thầy và máy học sinh — không cần đổi database. */
+function optOrder(q){
+  const n=(q&&q.options)?q.options.length:0;
+  const seedStr=((room&&room.id)?room.id:"")+"#"+((room&&typeof room.current!=="undefined")?room.current:0);
+  let h=2166136261;
+  for(let k=0;k<seedStr.length;k++){ h^=seedStr.charCodeAt(k); h=Math.imul(h,16777619); }
+  let s=h>>>0;
+  const rnd=()=>{ s|=0; s=(s+0x6D2B79F5)|0; let t=Math.imul(s^(s>>>15),1|s); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; };
+  const a=[]; for(let i=0;i<n;i++) a.push(i);
+  for(let i=n-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
 function remain(){ if(!room||!room.question_started_at) return QUESTION_TIME;
   return Math.max(0, QUESTION_TIME-Math.floor((Date.now()-new Date(room.question_started_at).getTime())/1000)); }
 function sbInit(){ sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY); return sb; }
@@ -650,12 +663,12 @@ async function tStartQ(){
 function tQuestion(){
   const q=qNow(); if(!q) return;
   const idx=room.current, total=room.question_set.length;
-  const letters=["A","B","C","D"];
+  const letters=["A","B","C","D"], order=optOrder(q);
   app.innerHTML=`<div class="card">
     <div class="note">Câu ${idx+1}/${total} ${q.type==="truefalse"?"• Dạng Đúng/Sai":""}</div>
     <div class="timer" id="tmr">${QUESTION_TIME}</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
-    <div class="opts">${q.options.map((o,i)=>`<div class="opt dim">${letters[i]||"•"}. ${esc(o)}</div>`).join("")}</div>
+    <div class="opts">${order.map((oi,d)=>`<div class="opt dim">${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
     <p class="sub">✅ Đã trả lời: <b id="acount">0</b> / ${players.length} bạn</p>
     <button class="btn big red" onclick="tLock()">⏹ Chốt đáp án</button>
   </div>`;
@@ -701,13 +714,13 @@ async function tShowReveal(){
   const total=room.question_set.length;
   const counts=q.options.map((_,i)=>answers.filter(a=>a.option_index===i).length);
   const maxC=Math.max(1,...counts);
-  const letters=["A","B","C","D"], last=idx>=total-1;
+  const letters=["A","B","C","D"], last=idx>=total-1, order=optOrder(q);
   app.innerHTML=`<div class="card">
     <div class="note">Câu ${idx+1}/${total} — Kết quả (${answers.length} bạn đã trả lời)</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
-    <div class="opts">${q.options.map((o,i)=>`<div class="opt ${i===q.correct?"correct":""}">${i===q.correct?"✅":"▫️"} ${letters[i]||"•"}. ${esc(o)}</div>`).join("")}</div>
+    <div class="opts">${order.map((oi,d)=>`<div class="opt ${oi===q.correct?"correct":""}">${oi===q.correct?"✅":"▫️"} ${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
     <h3>📊 Cả lớp đã chọn</h3>
-    ${q.options.map((o,i)=>`<div class="bar ${i===q.correct?"right":""}"><div style="width:${Math.max(8,Math.round(counts[i]/maxC*100))}%">${letters[i]||"•"}: ${counts[i]}</div></div>`).join("")}
+    ${order.map((oi,d)=>`<div class="bar ${oi===q.correct?"right":""}"><div style="width:${Math.max(8,Math.round(counts[oi]/maxC*100))}%">${letters[d]||"•"}: ${counts[oi]}</div></div>`).join("")}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <h3>🏅 Bảng điểm</h3>${scoreTable()}
     <button class="btn big green" onclick="tNext()">${last?"🏁 Xem vinh danh":"Câu tiếp theo ➡"}</button>
@@ -795,22 +808,22 @@ function sLobby(){
 }
 function sQuestion(){
   const q=qNow(); if(!q) return;
-  const letters=["A","B","C","D"];
+  const letters=["A","B","C","D"], order=optOrder(q);
   app.innerHTML=`<div class="card">
     <div class="note">Câu ${room.current+1}/${room.question_set.length}</div>
     <div class="timer" id="tmr">${QUESTION_TIME}</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
-    <div class="opts" id="sopts">${q.options.map((o,i)=>`<div class="opt" onclick="sAnswer(${i})">${letters[i]||"•"}. ${esc(o)}</div>`).join("")}</div>
+    <div class="opts" id="sopts">${order.map((oi,d)=>`<div class="opt" onclick="sAnswer(${d})">${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
   </div>`;
   if(timerInt) clearInterval(timerInt);
   timerInt=setInterval(()=>{ const r=remain(); const e=document.getElementById("tmr");
     if(e){ e.textContent=r; e.classList.toggle("warn",r<=5); } if(r<=0) clearInterval(timerInt); },250);
 }
-async function sAnswer(i){
+async function sAnswer(d){
   if(myAnswer!==null) return;
+  const q=qNow(); const order=optOrder(q); const i=order[d];
   myAnswer=i; SFX.click();
-  document.querySelectorAll("#sopts .opt").forEach((el,j)=>{ el.classList.toggle("picked",j===i); el.style.pointerEvents="none"; });
-  const q=qNow();
+  document.querySelectorAll("#sopts .opt").forEach((el,j)=>{ el.classList.toggle("picked",j===d); el.style.pointerEvents="none"; });
   const ms=Math.max(0,Date.now()-new Date(room.question_started_at).getTime());
   try{ await sb.from("answers").insert({room_id:room.id,player_id:myPlayer.id,q_index:room.current,option_index:i,is_correct:i===q.correct,ms}); }catch(e){}
   if(timerInt) clearInterval(timerInt);
