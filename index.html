@@ -92,6 +92,12 @@
   .footer a{ color:#2b4fe0; font-weight:700; text-decoration:none; }
   .footer a:hover{ text-decoration:underline; }
   .loginbox{ max-width:380px; margin:0 auto; }
+  /* ===== Dạng Sắp xếp / Điền từ ===== */
+  .ordn{ display:inline-block; min-width:30px; height:30px; line-height:30px; border-radius:50%;
+        background:#ffb340; color:#5e3a1a; font-weight:900; text-align:center; margin-right:10px; font-size:1.05rem; }
+  .ordertray{ background:#fff7dd; border:3px dashed #e0a800; border-radius:14px; padding:10px 12px;
+        margin:10px 0; font-weight:800; min-height:52px; }
+  body[data-gtheme="adventure"] .ordertray{ background:#fff7dd; border-color:#b5651d; }
   /* ===== Nút chọn giao diện ===== */
   .themepick{ display:flex; gap:10px; justify-content:center; margin:8px 0 4px; flex-wrap:wrap; }
   .themebtn{ border:3px solid #c9d4f5; background:#eef2ff; border-radius:16px; padding:9px 16px;
@@ -323,7 +329,18 @@ function remain(){ if(!room||!room.question_started_at) return QUESTION_TIME;
   return Math.max(0, QUESTION_TIME-Math.floor((Date.now()-new Date(room.question_started_at).getTime())/1000)); }
 function sbInit(){ sb=sb||supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY); return sb; }
 function qImg(q){ return q.image_url?`<img class="qimg" src="${esc(q.image_url)}" alt="Hình minh họa" onerror="this.style.display='none'">`:""; }
-function typeTag(q){ return q.type==="truefalse"?'<span class="tag">Đúng/Sai</span>':'<span class="tag">Trắc nghiệm</span>'; }
+function typeTag(q){
+  if(q.type==="truefalse") return '<span class="tag">Đúng/Sai</span>';
+  if(q.type==="reorder") return '<span class="tag">🔢 Sắp xếp</span>';
+  if(q.type==="fillblank") return '<span class="tag">✏️ Điền từ</span>';
+  return '<span class="tag">Trắc nghiệm</span>';
+}
+function normBlank(s){ return String(s||"").toLowerCase().trim().replace(/\s+/g," "); }
+function stripAcc(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"d"); }
+function blankCorrect(q,ans){
+  const a=normBlank(ans); if(!a) return false;
+  return (q.options||[]).some(o=>{ const b=normBlank(o); return b&& (b===a || stripAcc(b)===stripAcc(a)); });
+}
 
 /* ================= MÀN HÌNH CHUNG ================= */
 function showHome(){
@@ -523,24 +540,37 @@ async function tQSave(sid){
   if(!String(sid).startsWith("fb")) await sb.from("question_bank").update({questions:s.questions}).eq("id",sid);
   tSetDetail(sid);
 }
+function tQOptInputs(t,q){
+  const opts=(q&&q.options)||[];
+  if(t==="truefalse") return `<label><b>Các đáp án:</b></label><br><p class="note">Dạng Đúng/Sai dùng sẵn 2 đáp án: <b>1. Đúng</b> — <b>2. Sai</b></p>`;
+  if(t==="reorder") return `<label><b>Các bước (nhập theo <u>đúng thứ tự</u> từ 1 đến 4):</b></label><br>`+
+    [0,1,2,3].map(j=>`<input type="text" id="opt${j}" placeholder="Bước ${j+1} (theo đúng thứ tự)" value="${esc(opts[j]||"")}">`).join("")+
+    `<p class="note">💡 Khi chơi, thứ tự các bước sẽ bị đảo lộn — học sinh bấm theo đúng thứ tự để ghi điểm (đúng từng vị trí vẫn được điểm).</p>`;
+  if(t==="fillblank") return `<label><b>Đáp án đúng (có thể thêm cách viết khác):</b></label><br>`+
+    [0,1,2].map(j=>`<input type="text" id="opt${j}" placeholder="${j===0?"Đáp án đúng (bắt buộc)":"Cách viết khác "+j+" (không bắt buộc)"}" value="${esc(opts[j]||"")}">`).join("")+
+    `<p class="note">💡 Hệ thống tự chấp nhận chữ hoa/thường và không dấu (VD: "Hà Nội" = "ha noi").</p>`;
+  return `<label><b>Các đáp án:</b></label><br>`+
+    [0,1,2,3].map(j=>`<input type="text" id="opt${j}" placeholder="Đáp án ${j+1}" value="${esc(opts[j]||"")}">`).join("");
+}
 function tQForm(sid,i){
   const s=bank.find(x=>x.id===sid);
   const q=i>=0?s.questions[i]:{type:"choice",q:"",options:["","","",""],correct:0,explain:"",image_url:""};
   editingQ={sid,i};
-  const optInputs=q.options.map((t,j)=>`<input type="text" id="opt${j}" placeholder="Đáp án ${j+1}" value="${esc(t)}">`).join("");
+  const typeOpts=[["choice","Trắc nghiệm 4 đáp án"],["truefalse","Đúng / Sai"],["reorder","🔢 Sắp xếp thứ tự"],["fillblank","✏️ Điền từ"]]
+    .map(([v,l])=>`<option value="${v}" ${q.type===v?"selected":""}>${l}</option>`).join("");
+  const hideCorrect=(q.type==="reorder"||q.type==="fillblank");
   document.getElementById("tBody").innerHTML=`
     <h3>${i>=0?"✏️ Sửa câu hỏi":"➕ Thêm câu hỏi"} — ${esc(s.set_name)}</h3>
     <div style="text-align:left;max-width:640px;margin:0 auto">
       <label><b>Dạng câu hỏi:</b></label><br>
-      <select id="qType" onchange="tQTypeChange()">
-        <option value="choice" ${q.type!=="truefalse"?"selected":""}>Trắc nghiệm 4 đáp án</option>
-        <option value="truefalse" ${q.type==="truefalse"?"selected":""}>Đúng / Sai</option>
-      </select><br>
+      <select id="qType" onchange="tQTypeChange()">${typeOpts}</select><br>
       <label><b>Câu hỏi:</b></label>
       <textarea id="qText" placeholder="Nhập câu hỏi...">${esc(q.q)}</textarea><br>
-      <div id="optBox"><label><b>Các đáp án:</b></label><br>${optInputs}</div>
+      <div id="optBox">${tQOptInputs(q.type,q)}</div>
+      <div id="correctBox" style="${hideCorrect?"display:none":""}">
       <label><b>Đáp án đúng (số thứ tự, bắt đầu từ 1):</b></label><br>
       <input type="text" id="qCorrect" inputmode="numeric" value="${(q.correct??0)+1}" style="max-width:120px"><br>
+      </div>
       <label><b>Giải thích (hiện sau khi chốt đáp án):</b></label>
       <textarea id="qExplain" placeholder="Giải thích...">${esc(q.explain||"")}</textarea><br>
       <label><b>Link hình minh họa (không bắt buộc):</b></label><br>
@@ -552,9 +582,8 @@ function tQForm(sid,i){
 }
 function tQTypeChange(){
   const t=document.getElementById("qType").value;
-  document.getElementById("optBox").innerHTML = t==="truefalse"
-    ? `<label><b>Các đáp án:</b></label><br><p class="note">Dạng Đúng/Sai dùng sẵn 2 đáp án: <b>1. Đúng</b> — <b>2. Sai</b></p>`
-    : `<label><b>Các đáp án:</b></label><br>`+[0,1,2,3].map(j=>`<input type="text" id="opt${j}" placeholder="Đáp án ${j+1}">`).join("");
+  document.getElementById("optBox").innerHTML=tQOptInputs(t,{options:[]});
+  document.getElementById("correctBox").style.display=(t==="reorder"||t==="fillblank")?"none":"";
 }
 function tQSubmit(){
   const {sid,i}=editingQ;
@@ -564,6 +593,16 @@ function tQSubmit(){
   if(!qText){ alert("Thầy nhập câu hỏi đã nhé!"); return; }
   let options, correct;
   if(type==="truefalse"){ options=["Đúng","Sai"]; correct=parseInt(document.getElementById("qCorrect").value)-1; }
+  else if(type==="reorder"){
+    options=[0,1,2,3].map(j=>document.getElementById("opt"+j).value.trim());
+    if(options.some(o=>!o)){ alert("Thầy nhập đủ 4 bước theo đúng thứ tự nhé!"); return; }
+    correct=0;
+  }
+  else if(type==="fillblank"){
+    options=[0,1,2].map(j=>document.getElementById("opt"+j).value.trim()).filter(o=>o);
+    if(!options.length){ alert("Thầy nhập ít nhất 1 đáp án đúng nhé!"); return; }
+    correct=0;
+  }
   else{
     options=[0,1,2,3].map(j=>document.getElementById("opt"+j).value.trim());
     if(options.some(o=>!o)){ alert("Thầy nhập đủ 4 đáp án nhé!"); return; }
@@ -591,7 +630,9 @@ function tBulkForm(sid){
 function tBulkSample(){
   document.getElementById("bulkText").value=JSON.stringify([
     {"type":"choice","q":"Câu hỏi ví dụ?","options":["Đáp án 1","Đáp án 2","Đáp án 3","Đáp án 4"],"correct":1,"explain":"Giải thích...","image_url":""},
-    {"type":"truefalse","q":"Câu đúng/sai ví dụ?","options":["Đúng","Sai"],"correct":0,"explain":"Giải thích...","image_url":""}
+    {"type":"truefalse","q":"Câu đúng/sai ví dụ?","options":["Đúng","Sai"],"correct":0,"explain":"Giải thích...","image_url":""},
+    {"type":"reorder","q":"Xếp đúng thứ tự các bước rửa tay?","options":["Làm ướt tay","Thoa xà phòng","Chà kỹ kẽ ngón tay","Rửa sạch với nước"],"correct":0,"explain":"...","image_url":""},
+    {"type":"fillblank","q":"Thủ đô của Việt Nam là ...","options":["Hà Nội","Ha Noi"],"correct":0,"explain":"...","image_url":""}
   ],null,1);
 }
 function tBulkSubmit(sid){
@@ -600,12 +641,16 @@ function tBulkSubmit(sid){
   try{ arr=JSON.parse(document.getElementById("bulkText").value); if(!Array.isArray(arr)) throw 0; }
   catch(e){ document.getElementById("bulkErr").innerHTML=`<div class="cfgwarn">⚠️ Nội dung chưa đúng định dạng JSON. Bấm "Xem mẫu" để tham khảo nhé!</div>`; return; }
   const ok=[];
+  const TYPES=["choice","truefalse","reorder","fillblank"];
   for(const x of arr){
     if(!x||!x.q) continue;
-    const type=x.type==="truefalse"?"truefalse":"choice";
-    const options=type==="truefalse"?["Đúng","Sai"]:(Array.isArray(x.options)&&x.options.length===4?x.options.map(String):null);
+    const type=TYPES.includes(x.type)?x.type:"choice";
+    let options=null;
+    if(type==="truefalse") options=["Đúng","Sai"];
+    else if(type==="fillblank"){ const a=Array.isArray(x.options)?x.options.map(String).filter(o=>o.trim()):[]; if(a.length) options=a; }
+    else if(Array.isArray(x.options)&&x.options.length===4&&x.options.every(o=>String(o).trim())) options=x.options.map(String);
     if(!options) continue;
-    let correct=parseInt(x.correct)||0; if(correct<0||correct>=options.length) correct=0;
+    let correct=type==="choice"?(parseInt(x.correct)||0):0; if(correct<0||correct>=options.length) correct=0;
     ok.push({type,q:String(x.q),options,correct,explain:String(x.explain||""),image_url:String(x.image_url||"")});
   }
   if(!ok.length){ document.getElementById("bulkErr").innerHTML=`<div class="cfgwarn">⚠️ Không có câu hỏi hợp lệ nào để nhập.</div>`; return; }
@@ -645,12 +690,14 @@ async function aiGenerate(){
   const prompt=`Bạn là trợ lý soạn câu hỏi trắc nghiệm cho giáo viên tiểu học Việt Nam.
 Dựa vào ý tưởng sau, hãy tạo đúng ${n} câu hỏi cho học sinh tiểu học (tiếng Việt đơn giản, mỗi câu có 1 đáp án đúng duy nhất).
 Ý tưởng: ${idea}
-Mỗi câu thuộc 1 trong 2 dạng:
+Mỗi câu thuộc 1 trong 4 dạng (trộn đều các dạng cho sinh động):
 - "choice": trắc nghiệm 4 đáp án (đáp án nhiễu phải hợp lý, dễ nhầm).
 - "truefalse": câu đúng/sai (options luôn là ["Đúng","Sai"]).
+- "reorder": sắp xếp thứ tự — options là 4 mục theo ĐÚNG thứ tự (VD: các bước thực hiện, quy trình), correct luôn là 0.
+- "fillblank": điền từ — q chứa chỗ trống "...", options là 1-3 đáp án được chấp nhận (kể cả cách viết không dấu), correct luôn là 0.
 Với mỗi câu, đề xuất thêm "image_prompt" (tiếng Anh, ngắn gọn) để vẽ ảnh minh họa KHÔNG có chữ.
 Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải thích:
-{"questions":[{"type":"choice","q":"...","options":["...","...","...","..."],"correct":2,"explain":"...","image_prompt":"..."},{"type":"truefalse","q":"...","options":["Đúng","Sai"],"correct":0,"explain":"...","image_prompt":"..."}]}`;
+{"questions":[{"type":"choice","q":"...","options":["...","...","...","..."],"correct":2,"explain":"...","image_prompt":"..."},{"type":"reorder","q":"Xếp đúng thứ tự...?","options":["Bước 1","Bước 2","Bước 3","Bước 4"],"correct":0,"explain":"...","image_prompt":"..."},{"type":"fillblank","q":"... là ...","options":["Đáp án","Dap an"],"correct":0,"explain":"...","image_prompt":"..."}]}`;
   try{
     let j=null, lastErr="";
     const maxTok=Math.min(8000, parseInt(n)*600);
@@ -673,10 +720,17 @@ Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải
     let txt=j.candidates[0].content.parts.map(p=>p.text||"").join("");
     txt=txt.replace(/```json|```/g,"").trim();
     const data=JSON.parse(txt);
-    aiResult=(data.questions||[]).map(x=>({type:x.type==="truefalse"?"truefalse":"choice",
-      q:String(x.q||""), options:Array.isArray(x.options)&&x.options.length?x.options.map(String):["Đúng","Sai"],
-      correct:Math.max(0,parseInt(x.correct)||0), explain:String(x.explain||""), image_url:"",
-      image_prompt:String(x.image_prompt||""), keep:true})).filter(x=>x.q);
+    const TYPES=["choice","truefalse","reorder","fillblank"];
+    aiResult=(data.questions||[]).map(x=>{
+      const t=TYPES.includes(x.type)?x.type:"choice";
+      let options;
+      if(t==="truefalse") options=["Đúng","Sai"];
+      else if(t==="fillblank") options=Array.isArray(x.options)?x.options.map(String).filter(o=>o.trim()):[];
+      else options=Array.isArray(x.options)?x.options.map(String):[];
+      return {type:t, q:String(x.q||""), options,
+        correct:t==="choice"?Math.max(0,parseInt(x.correct)||0):0, explain:String(x.explain||""), image_url:"",
+        image_prompt:String(x.image_prompt||""), keep:true};
+    }).filter(x=>x.q&&x.options.length>0&&(x.type==="fillblank"||x.type==="truefalse"||(x.options.length===4&&x.options.every(o=>o.trim()))));
     if(!aiResult.length) throw new Error("AI không trả về câu hỏi nào.");
     SFX.correct(); aiPreview();
   }catch(e){ out.innerHTML=`<div class="cfgwarn">⚠️ ${esc(e.message)}<br><span class="note">Kiểm tra lại API key và mạng rồi thử lại nhé thầy.</span></div>`; }
@@ -800,11 +854,15 @@ function tQuestion(){
   const q=qNow(); if(!q) return; applyTheme();
   const idx=room.current, total=room.question_set.length;
   const letters=["A","B","C","D"], order=optOrder(q);
+  const typeNote=q.type==="truefalse"?"• Dạng Đúng/Sai":q.type==="reorder"?"• 🔢 Xếp đúng thứ tự":q.type==="fillblank"?"• ✏️ Điền từ":"";
+  const optsHtml=q.type==="fillblank"
+    ? `<p class="sub">✏️ Học sinh điền đáp án vào ô trống trên máy của mình</p>`
+    : `<div class="opts">${order.map((oi,d)=>`<div class="opt dim">${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>`;
   app.innerHTML=`<div class="card">
-    <div class="note">Câu ${idx+1}/${total} ${q.type==="truefalse"?"• Dạng Đúng/Sai":""}</div>
+    <div class="note">Câu ${idx+1}/${total} ${typeNote}</div>
     <div class="timer" id="tmr">${QUESTION_TIME}</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
-    <div class="opts">${order.map((oi,d)=>`<div class="opt dim">${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
+    ${optsHtml}
     <p class="sub">✅ Đã trả lời: <b id="acount">0</b> / ${players.length} bạn</p>
     <button class="btn big red" onclick="tLock()">⏹ Chốt đáp án</button>
   </div>`;
@@ -830,8 +888,12 @@ async function tLock(){
   answers=ans||[];
   const pmap={}; players.forEach(p=>pmap[p.id]=p);
   for(const a of answers){
-    if(a.is_correct&&pmap[a.player_id]){
-      const bonus=Math.max(0,Math.round(50*(1-a.ms/(QUESTION_TIME*1000))));
+    if(!pmap[a.player_id]) continue;
+    const bonus=Math.max(0,Math.round(50*(1-a.ms/(QUESTION_TIME*1000))));
+    if(q.type==="reorder"){
+      const frac=Math.max(0,Math.min(1,(a.option_index||0)/q.options.length));
+      if(frac>0) pmap[a.player_id].score+=Math.round(100*frac)+(a.is_correct?bonus:0);
+    } else if(a.is_correct){
       pmap[a.player_id].score+=100+bonus;
     }
   }
@@ -848,15 +910,30 @@ async function tShowReveal(){
     answers=data||[];
   }catch(e){}
   const total=room.question_set.length;
-  const counts=q.options.map((_,i)=>answers.filter(a=>a.option_index===i).length);
-  const maxC=Math.max(1,...counts);
   const letters=["A","B","C","D"], last=idx>=total-1, order=optOrder(q);
+  let resultHtml="";
+  if(q.type==="reorder"){
+    const full=answers.filter(a=>a.is_correct).length;
+    resultHtml=`<div class="qtext" style="font-size:1.3rem">Thứ tự đúng:<br><b>${q.options.map((o,i)=>`${i+1}. ${esc(o)}`).join("<br>")}</b></div>
+    <h3>📊 Kết quả</h3>
+    <div class="bar right"><div style="width:${answers.length?Math.max(8,Math.round(full/answers.length*100)):8}%">🎯 Đúng hoàn toàn: ${full}/${answers.length}</div></div>
+    <p class="note">Điểm tính theo số vị trí đúng (mỗi vị trí = ${Math.round(100/q.options.length)} điểm).</p>`;
+  } else if(q.type==="fillblank"){
+    const full=answers.filter(a=>a.is_correct).length;
+    resultHtml=`<div class="qtext" style="font-size:1.3rem">Đáp án được chấp nhận: <b>${q.options.map(o=>esc(o)).join(" / ")}</b></div>
+    <h3>📊 Kết quả</h3>
+    <div class="bar right"><div style="width:${answers.length?Math.max(8,Math.round(full/answers.length*100)):8}%">🎯 Trả lời đúng: ${full}/${answers.length}</div></div>`;
+  } else {
+    const counts=q.options.map((_,i)=>answers.filter(a=>a.option_index===i).length);
+    const maxC=Math.max(1,...counts);
+    resultHtml=`<div class="opts">${order.map((oi,d)=>`<div class="opt ${oi===q.correct?"correct":""}">${oi===q.correct?"✅":"▫️"} ${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
+    <h3>📊 Cả lớp đã chọn</h3>
+    ${order.map((oi,d)=>`<div class="bar ${oi===q.correct?"right":""}"><div style="width:${Math.max(8,Math.round(counts[oi]/maxC*100))}%">${letters[d]||"•"}: ${counts[oi]}</div></div>`).join("")}`;
+  }
   app.innerHTML=`<div class="card">
     <div class="note">Câu ${idx+1}/${total} — Kết quả (${answers.length} bạn đã trả lời)</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
-    <div class="opts">${order.map((oi,d)=>`<div class="opt ${oi===q.correct?"correct":""}">${oi===q.correct?"✅":"▫️"} ${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
-    <h3>📊 Cả lớp đã chọn</h3>
-    ${order.map((oi,d)=>`<div class="bar ${oi===q.correct?"right":""}"><div style="width:${Math.max(8,Math.round(counts[oi]/maxC*100))}%">${letters[d]||"•"}: ${counts[oi]}</div></div>`).join("")}
+    ${resultHtml}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <h3>🏅 Bảng điểm</h3>${scoreTable()}
     <button class="btn big green" onclick="tNext()">${last?"🏁 Xem vinh danh":"Câu tiếp theo ➡"}</button>
@@ -947,18 +1024,80 @@ function sLobby(){
     :`<h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
     <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span></div>`;
 }
+let sOrd=[], sOrder=[]; // thứ tự hiển thị + thứ tự HS đã xếp (dạng reorder)
+function sRenderOrder(){
+  const q=qNow(); if(!q) return;
+  const letters=["A","B","C","D"];
+  const box=document.getElementById("sopts"); if(!box) return;
+  box.innerHTML=sOrd.map((oi,d)=>{
+    const pos=sOrder.indexOf(oi)+1;
+    return `<div class="opt${pos?" picked":""}" onclick="sPickOrder(${d})">${pos?`<span class="ordn">${pos}</span>`:""}${letters[d]||"•"}. ${esc(q.options[oi])}</div>`;
+  }).join("");
+}
+function sPickOrder(d){
+  if(myAnswer!==null) return;
+  const oi=sOrd[d]; if(oi===undefined||sOrder.includes(oi)) return;
+  sOrder.push(oi); SFX.click(); sRenderOrder();
+}
+function sClearOrder(){ if(myAnswer!==null) return; sOrder=[]; SFX.click(); sRenderOrder(); }
+async function sSubmitOrder(auto){
+  if(myAnswer!==null) return;
+  const q=qNow(); if(!q) return;
+  if(!auto&&sOrder.length<q.options.length){ alert(`Em xếp đủ ${q.options.length} đáp án rồi bấm Xong nhé!`); return; }
+  let cc=0; sOrder.forEach((oi,pos)=>{ if(oi===pos) cc++; });
+  const ok=cc===q.options.length;
+  myAnswer={t:"reorder",cc};
+  const ms=Math.max(0,Date.now()-new Date(room.question_started_at).getTime());
+  try{ await sb.from("answers").insert({room_id:room.id,player_id:myPlayer.id,q_index:room.current,option_index:cc,is_correct:ok,ms}); }catch(e){}
+  if(timerInt) clearInterval(timerInt);
+  app.innerHTML=`<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ thầy chốt đáp án nhé...</p><span class="spin"></span></div>`;
+}
+async function sSubmitBlank(auto){
+  if(myAnswer!==null) return;
+  const q=qNow(); if(!q) return;
+  const el=document.getElementById("blankIn");
+  const val=el?el.value:"";
+  if(!auto&&!val.trim()){ alert("Em điền đáp án đã nhé!"); return; }
+  const ok=blankCorrect(q,val);
+  myAnswer={t:"blank",ok};
+  const ms=Math.max(0,Date.now()-new Date(room.question_started_at).getTime());
+  try{ await sb.from("answers").insert({room_id:room.id,player_id:myPlayer.id,q_index:room.current,option_index:-1,is_correct:ok,ms}); }catch(e){}
+  if(timerInt) clearInterval(timerInt);
+  app.innerHTML=`<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ thầy chốt đáp án nhé...</p><span class="spin"></span></div>`;
+}
+function sTimeUp(){
+  const q=qNow(); if(!q||myAnswer!==null) return;
+  if(q.type==="reorder") sSubmitOrder(true);
+  else if(q.type==="fillblank") sSubmitBlank(true);
+}
 function sQuestion(){
   const q=qNow(); if(!q) return; applyTheme();
+  sOrd=[]; sOrder=[];
   const letters=["A","B","C","D"], order=optOrder(q);
+  let body="";
+  if(q.type==="reorder"){
+    sOrd=order;
+    body=`<div class="note">🔢 Bấm các đáp án theo <b>đúng thứ tự</b> từ 1 đến ${q.options.length}</div>
+      <div class="opts" id="sopts"></div>
+      <button class="btn small" onclick="sClearOrder()">↩️ Xếp lại</button>
+      <button class="btn big green" onclick="sSubmitOrder(false)">✅ Xong</button>`;
+  } else if(q.type==="fillblank"){
+    body=`<div class="note">✏️ Điền từ còn thiếu rồi bấm Trả lời</div>
+      <input type="text" id="blankIn" placeholder="Em điền đáp án..." autocomplete="off" style="font-size:1.3rem;text-align:center">
+      <br><button class="btn big green" onclick="sSubmitBlank(false)">✅ Trả lời</button>`;
+  } else {
+    body=`<div class="opts" id="sopts">${order.map((oi,d)=>`<div class="opt" onclick="sAnswer(${d})">${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>`;
+  }
   app.innerHTML=`<div class="card">
-    <div class="note">Câu ${room.current+1}/${room.question_set.length}</div>
+    <div class="note">Câu ${room.current+1}/${room.question_set.length} ${typeTag(q)}</div>
     <div class="timer" id="tmr">${QUESTION_TIME}</div>
     <div class="qtext">${esc(q.q)}</div>${qImg(q)}
-    <div class="opts" id="sopts">${order.map((oi,d)=>`<div class="opt" onclick="sAnswer(${d})">${letters[d]||"•"}. ${esc(q.options[oi])}</div>`).join("")}</div>
+    ${body}
   </div>`;
+  if(q.type==="reorder") sRenderOrder();
   if(timerInt) clearInterval(timerInt);
   timerInt=setInterval(()=>{ const r=remain(); const e=document.getElementById("tmr");
-    if(e){ e.textContent=r; e.classList.toggle("warn",r<=5); } if(r<=0) clearInterval(timerInt); },250);
+    if(e){ e.textContent=r; e.classList.toggle("warn",r<=5); } if(r<=0){ clearInterval(timerInt); sTimeUp(); } },250);
 }
 async function sAnswer(d){
   if(myAnswer!==null) return;
@@ -973,7 +1112,19 @@ async function sAnswer(d){
 async function sReveal(){
   if(timerInt) clearInterval(timerInt);
   const q=qNow(); if(!q) return; applyTheme();
-  const ok=myAnswer!==null&&myAnswer===q.correct;
+  let ok=false, rightHtml="";
+  if(q.type==="reorder"){
+    const cc=(myAnswer&&myAnswer.t==="reorder")?myAnswer.cc:0;
+    ok=cc===q.options.length;
+    rightHtml=`Thứ tự đúng:<br><b>${q.options.map((o,i)=>`${i+1}. ${esc(o)}`).join("<br>")}</b>`+
+      (myAnswer&&!ok?`<br><span class="note">Em đúng ${cc}/${q.options.length} vị trí — cố lên! 💪</span>`:"");
+  } else if(q.type==="fillblank"){
+    ok=!!(myAnswer&&myAnswer.t==="blank"&&myAnswer.ok);
+    rightHtml=`Đáp án đúng: <b>${esc(q.options[0])}</b>`;
+  } else {
+    ok=myAnswer!==null&&myAnswer===q.correct;
+    rightHtml=`Đáp án đúng: <b>${esc(q.options[q.correct])}</b>`;
+  }
   const {data}=await sb.from("players").select("score").eq("id",myPlayer.id).single();
   const sc=data?data.score:0;
   const {data:all}=await sb.from("players").select("score").eq("room_id",room.id).order("score",{ascending:false});
@@ -981,7 +1132,7 @@ async function sReveal(){
   if(ok){ SFX.correct(); boom(innerWidth/2,innerHeight/3,50); } else SFX.wrong();
   app.innerHTML=`<div class="card">
     <h2>${myAnswer===null?"⏰ Hết giờ!":ok?"🎉 Đúng rồi!":"😅 Chưa đúng"}</h2>
-    <div class="qtext" style="font-size:1.25rem">Đáp án đúng: <b>${esc(q.options[q.correct])}</b></div>
+    <div class="qtext" style="font-size:1.25rem">${rightHtml}</div>
     ${qImg(q)}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <p class="sub">Điểm của em: <b>${sc}</b> • Xếp hạng: <b>${rank}</b></p>
