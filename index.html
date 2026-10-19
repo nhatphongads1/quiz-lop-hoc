@@ -342,7 +342,10 @@ let myPlayer=null, myAnswer=null, timerInt=null, channel=null, channel2=null, ch
 let bank=[], aiResult=null, editingQ=null, bankReadOnly=false;
 let roomTheme="classic"; // giao diện phòng sắp tạo: classic | adventure
 let roomMode="live"; // chế độ chơi: live (thầy điều khiển) | auto (HS tự làm)
-function pickMode(m){ roomMode=m; document.querySelectorAll(".modebtn").forEach(b=>b.classList.toggle("on",b.dataset.mode===m)); SFX.click(); }
+function pickMode(m){
+  if(m==="auto"&&!canAuto()){ alert("Chế độ 🚀 Tự động chỉ dành cho tài khoản trả phí.\nThầy nâng cấp để mở khóa nhé!"); return; }
+  roomMode=m; document.querySelectorAll(".modebtn").forEach(b=>b.classList.toggle("on",b.dataset.mode===m)); SFX.click(); }
+function canAuto(){ const s=sess(); return !!s&&(s.plan==="paid"||s.plan==="owner"); } // trả phí + admin mới dùng được
 function canAdventure(){ const s=sess(); return !!s; } // đã đăng nhập (trial/paid/admin) là được dùng
 function pickTheme(t){
   if(t==="adventure"&&!canAdventure()){ alert("Thầy đăng nhập tài khoản để mở giao diện Phiêu lưu nhé! (Tài khoản dùng thử cũng được.)"); return; }
@@ -589,9 +592,9 @@ function tRoomTab(){
       <p style="margin:.4em 0 .1em"><b>🎮 Chế độ chơi:</b></p>
       <div class="themepick">
         <button class="modebtn on" data-mode="live" onclick="pickMode('live')">🎮 Trực tiếp</button>
-        <button class="modebtn" data-mode="auto" onclick="pickMode('auto')">🚀 Tự động</button>
+        <button class="modebtn${canAuto()?"":" locked"}" data-mode="auto" onclick="pickMode('auto')">${canAuto()?"🚀 Tự động":"🔒 Tự động"}</button>
       </div>
-      <p class="note">🚀 Tự động: HS tự làm hết câu hỏi theo nhịp riêng — thầy chỉ bấm <b>Bắt đầu</b> 1 lần và <b>Kết thúc</b> khi muốn.</p>
+      <p class="note">🚀 Tự động: HS tự làm hết câu hỏi theo nhịp riêng — thầy chỉ bấm <b>Bắt đầu</b> 1 lần và <b>Kết thúc</b> khi muốn.${canAuto()?"":" <b>Chỉ tài khoản trả phí.</b>"}</p>
       <button class="btn big green" onclick="tCreateRoom()">🚀 Tạo phòng</button><br>
       <button class="btn small" onclick="showTeacherRejoin()">🔑 Vào lại phòng cũ bằng PIN</button>`;
   });
@@ -912,7 +915,7 @@ async function tCreateRoom(){
     const {data}=await sb.from("rooms").select("id").eq("pin",pin).limit(1);
     if(!data||!data.length) break; }
   const theme=canAdventure()?roomTheme:"classic";
-  const mode=roomMode||"live";
+  const mode=canAuto()?(roomMode||"live"):"live"; // trial/ẩn danh luôn chơi trực tiếp
   let res=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:s.questions,theme,mode}).select().single();
   if(res.error&&/theme|mode/i.test(res.error.message||"")){
     // chưa chạy migration v4/v5 (thiếu cột theme/mode) → tạo phòng kiểu cũ
