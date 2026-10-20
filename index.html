@@ -1289,15 +1289,25 @@ async function sJoin(){
   myPlayer=p; sCur=-1; myAnswer=null; sAutoStarted=false; SFX.join();
   subRoomStudent(); sLobby();
 }
+let sSyncInt=null;
+async function sSyncRoom(manual){
+  try{
+    const {data}=await sb.from("rooms").select("phase,current").eq("id",room.id).single();
+    if(data&&(data.phase!==room.phase||data.current!==room.current)){
+      room.phase=data.phase; room.current=data.current; onRoomChange();
+      if(manual) toast("✅ Đã đồng bộ!");
+    } else if(manual) toast("Không có gì mới — em chờ thầy nhé!");
+  }catch(e){ if(manual) toast("⚠️ Mạng yếu, em thử lại nhé!"); }
+}
 function subRoomStudent(){
   channel=sb.channel("sroom-"+room.id)
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"rooms",filter:"id=eq."+room.id},payload=>{
       room=payload.new; onRoomChange();
     }).subscribe();
-  setTimeout(async()=>{ // đề phòng đổi pha trước khi kênh realtime kịp nối
-    const {data}=await sb.from("rooms").select("*").eq("id",room.id).single();
-    if(data&&(data.phase!==room.phase||data.current!==room.current)){ room=data; onRoomChange(); }
-  },2500);
+  // phao cứu sinh: đồng bộ liên tục mỗi 5s đề phòng realtime rớt (wifi trường hay chập chờn)
+  if(sSyncInt) clearInterval(sSyncInt);
+  sSyncRoom(false);
+  sSyncInt=setInterval(()=>sSyncRoom(false),5000);
 }
 function onRoomChange(){
   if(sAutoMode()){
@@ -1317,7 +1327,9 @@ function sLobby(){
   app.innerHTML=`<div class="card">${adv?`<h2>🧭 Sẵn sàng lên đường, <b>${esc(myPlayer.name)}</b>!</h2>
     <p class="sub">Em đã gia nhập biệt đội. Chờ thầy bắt đầu chuyến phiêu lưu nhé...</p>`
     :`<h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
-    <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span></div>`;
+    <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span>
+    <p class="note">Thầy đã bắt đầu mà em chưa thấy câu hỏi?</p>
+    <button class="btn small" onclick="sSyncRoom(true)">🔄 Tải lại</button></div>`;
 }
 let sOrd=[], sOrder=[]; // thứ tự hiển thị + thứ tự HS đã xếp (dạng reorder)
 /* ===== VÒNG QUAY MAY MẮN ===== */
