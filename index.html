@@ -1294,16 +1294,26 @@ let sSyncInt=null;
 async function sSyncRoom(manual){
   try{
     const {data}=await sb.from("rooms").select("phase,current").eq("id",room.id).single();
+    let acted=false;
     if(data&&(data.phase!==room.phase||data.current!==room.current)){
-      room.phase=data.phase; room.current=data.current; onRoomChange();
-      if(manual) toast("✅ Đã đồng bộ!");
-    } else if(manual) toast("Không có gì mới — em chờ thầy nhé!");
+      room.phase=data.phase; room.current=data.current; onRoomChange(); acted=true;
+    }
+    // Watchdog: phòng đã ở phase câu hỏi mà màn hình HS chưa vào câu hỏi (lỡ nhịp realtime / lần bắt đầu trước bị lỗi)
+    // -> thử mở lại thay vì kẹt ở màn hình chờ vĩnh viễn
+    if(room&&room.phase==="question"){
+      if(sAutoMode()&&!sAutoStarted){ onRoomChange(); acted=true; }
+      else if(!sAutoMode()&&sCur!==room.current){ onRoomChange(); acted=true; }
+    }
+    if(manual) toast(acted?"✅ Đã đồng bộ!":"Không có gì mới — em chờ thầy nhé!");
   }catch(e){ if(manual) toast("⚠️ Mạng yếu, em thử lại nhé!"); }
 }
 function subRoomStudent(){
   channel=sb.channel("sroom-"+room.id)
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"rooms",filter:"id=eq."+room.id},payload=>{
-      room=payload.new; onRoomChange();
+      const nr=payload.new||{};
+      // Gói realtime khi chỉ đổi phase có thể THIẾU cột lớn question_set -> giữ lại dữ liệu cũ, tuyệt đối không ghi đè mất bộ đề
+      if(room){ if(!nr.question_set) nr.question_set=room.question_set; if(!nr.mode) nr.mode=room.mode; if(!nr.theme) nr.theme=room.theme; }
+      room=nr; onRoomChange();
     }).subscribe();
   // phao cứu sinh: đồng bộ liên tục mỗi 5s đề phòng realtime rớt (wifi trường hay chập chờn)
   if(sSyncInt) clearInterval(sSyncInt);
@@ -1312,7 +1322,7 @@ function subRoomStudent(){
 }
 function onRoomChange(){
   if(sAutoMode()){
-    if(room.phase==="question"){ if(!sAutoStarted){ sAutoStarted=true; sAutoBegin(); } }
+    if(room.phase==="question"){ if(!sAutoStarted){ sAutoStarted=true; sAutoBeginSafe(); } }
     else if(room.phase==="podium"){ sAutoPodium(); }
     return;
   }
@@ -1629,6 +1639,18 @@ function autoPoints(q,cc,ok,ms,streak){
     return frac>0?Math.round(100*frac)+((cc===q.options.length)?bonus+combo:0):0;
   }
   return ok?100+bonus+combo:0;
+}
+async function sAutoBeginSafe(){
+  // Thiếu bộ đề (gói realtime bị cắt cột lớn) thì tải lại cả phòng từ máy chủ trước khi bắt đầu;
+  // nếu bắt đầu bị lỗi thì nhả cờ sAutoStarted để lần đồng bộ sau (mỗi 5s) thử lại, không kẹt vĩnh viễn
+  try{
+    if(!room.question_set||!room.question_set.length){
+      const {data}=await sb.from("rooms").select("*").eq("id",room.id).single();
+      if(data&&data.question_set&&data.question_set.length) room=data;
+    }
+    if(!room.question_set||!room.question_set.length){ sAutoStarted=false; return; }
+    sAutoBegin();
+  }catch(e){ sAutoStarted=false; }
 }
 function sAutoBegin(){ sAutoIdx=0; sAutoStreak=0; sAutoCorrect=0; myAnswer=null; sAutoQ(); }
 function sAutoQ(){
