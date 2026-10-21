@@ -214,6 +214,18 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
+const BUILD_ID="fix3-20261021";
+/* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
+   sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
+async function checkFresh(){
+  try{
+    if(sessionStorage.getItem("fresh_checked")===BUILD_ID) return;
+    const t=await (await fetch(location.pathname+"?vcheck="+Date.now(),{cache:"no-store"})).text();
+    const m=t.match(/BUILD_ID="([^"]+)"/);
+    sessionStorage.setItem("fresh_checked",BUILD_ID);
+    if(m&&m[1]!==BUILD_ID){ sessionStorage.setItem("fresh_checked",m[1]); location.reload(); }
+  }catch(e){}
+}
 const QUESTION_TIME = 20;
 const GEMINI_MODELS = ["gemini-3.8-flash","gemini-3.7-flash","gemini-3.5-flash"];
 
@@ -1319,6 +1331,8 @@ function subRoomStudent(){
   if(sSyncInt) clearInterval(sSyncInt);
   sSyncRoom(false);
   sSyncInt=setInterval(()=>sSyncRoom(false),5000);
+  // máy vừa mở lại màn hình (ngủ/rớt foreground) thì đồng bộ ngay, khỏi chờ chu kỳ 5s
+  if(!window._sVisHook){ window._sVisHook=true; document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&room&&myPlayer) sSyncRoom(false); }); }
 }
 function onRoomChange(){
   if(sAutoMode()){
@@ -1340,7 +1354,9 @@ function sLobby(){
     :`<h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
     <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span>
     <p class="note">Thầy đã bắt đầu mà em chưa thấy câu hỏi?</p>
-    <button class="btn small" onclick="sSyncRoom(true)">🔄 Tải lại</button></div>`;
+    <button class="btn small" onclick="sSyncRoom(true)">🔄 Đồng bộ</button>
+    <button class="btn small" onclick="location.reload()">♻️ Tải lại trang</button>
+    <p class="note" style="opacity:.6">Phiên bản: ${BUILD_ID}</p></div>`;
 }
 let sOrd=[], sOrder=[]; // thứ tự hiển thị + thứ tự HS đã xếp (dạng reorder)
 /* ===== VÒNG QUAY MAY MẮN ===== */
@@ -1711,6 +1727,9 @@ function sAutoTimeUp(){
   else if(q.type==="fillblank") sAutoSubmitBlank(true);
   else { sAutoBusy=true; sAutoRecord(q,0,false,-2); }
 }
+function withTO(p,ms){ // chống treo khi mạng chập chờn: quá 8 giây là bỏ qua, cho HS chơi tiếp
+  return Promise.race([p,new Promise((_,rj)=>setTimeout(()=>rj(new Error("timeout")),ms))]);
+}
 async function sAutoRecord(q,cc,ok,oi){
   if(timerInt){ clearInterval(timerInt); timerInt=null; }
   const ms=Math.max(0,Date.now()-sAutoQStart);
@@ -1718,10 +1737,10 @@ async function sAutoRecord(q,cc,ok,oi){
   const pts=autoPoints(q,cc,ok,ms,sAutoStreak);
   myAnswer={t:"auto",ok};
   try{
-    await sb.from("answers").insert({room_id:room.id,player_id:myPlayer.id,q_index:sAutoIdx,option_index:oi,is_correct:ok,ms});
+    await withTO(sb.from("answers").insert({room_id:room.id,player_id:myPlayer.id,q_index:sAutoIdx,option_index:oi,is_correct:ok,ms}),8000);
     if(pts>0){
-      const {data}=await sb.from("players").select("score").eq("id",myPlayer.id).single();
-      await sb.from("players").update({score:(data?data.score:0)+pts}).eq("id",myPlayer.id);
+      const {data}=await withTO(sb.from("players").select("score").eq("id",myPlayer.id).single(),8000);
+      await withTO(sb.from("players").update({score:(data?data.score:0)+pts}).eq("id",myPlayer.id),8000);
     }
   }catch(e){}
   sAutoFeedback(q,ok,pts);
@@ -1744,7 +1763,7 @@ function sAutoFeedback(q,ok,pts){
     ${adv?`<div class="jmine">🗺️ Em đang ở <b>chặng ${sAutoCorrect}/${N}</b></div>`:""}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
     <p class="sub">+${pts} điểm • Đúng ${sAutoCorrect}/${sAutoIdx+1} câu</p>
-    ${canSpin?spinPanelHtml(sAutoCorrect):`<p class="note">Tự chuyển câu tiếp theo...</p><span class="spin"></span>`}
+    ${canSpin?spinPanelHtml(sAutoCorrect):`<p class="note">Tự chuyển câu tiếp theo...</p><span class="spin"></span><br><button class="btn big green" onclick="sAutoNext()">Câu tiếp theo ▶</button>`}
   </div>`;
   const wcv=document.getElementById("wheelCv"); if(wcv) drawWheel(wcv,0);
   if(!canSpin) setTimeout(()=>sAutoNext(),2800);
@@ -1785,6 +1804,7 @@ async function sAutoPodium(){
 }
 
 /* ================= KHỞI ĐỘNG ================= */
+checkFresh();
 sbInit();
 if(CONFIG.SUPABASE_URL.includes("DÁN_URL")||CONFIG.SUPABASE_ANON_KEY.includes("DÁN_ANON")){
   app.innerHTML=`<div class="card"><div class="cfgwarn">⚠️ Thầy chưa điền Supabase URL và anon key trong file index.html.<br>Mở file, tìm CONFIG ở đầu phần script và làm theo hướng dẫn nhé!</div></div>`;
