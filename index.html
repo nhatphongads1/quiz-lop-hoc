@@ -40,6 +40,7 @@
         text-indent:.35em; text-shadow:0 3px 0 #dbe4ff; }
   .plist{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:14px 0; }
   .pname{ background:#eef2ff; border:2px solid #c9d4f5; padding:8px 14px; border-radius:999px; font-weight:700; }
+  .pcls{ background:#fff3d6; border:2px solid #f0c75e; color:#7a5200; padding:1px 8px; border-radius:999px; font-weight:800; font-size:.82em; margin-left:6px; white-space:nowrap; }
   .qtext{ font-size:1.6rem; font-weight:800; margin:10px 0 16px; line-height:1.35; }
   .qimg{ max-width:100%; max-height:280px; border-radius:16px; margin:6px 0 10px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
   .opts{ display:grid; gap:12px; margin:10px 0; }
@@ -214,7 +215,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="fix3-20261021";
+const BUILD_ID="lop-ten-20261024";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -450,7 +451,7 @@ function journeyHtml(){
   const medals=["🥇","🥈","🥉"], toks=["🧑‍🎓","👧","👦"];
   const lanes=top.map((p,i)=>{
     const pct=Math.round(Math.min(n,cc[p.id]||0)/n*100);
-    return `<div class="jlane"><span class="jwho">${medals[i]} ${esc(p.name)}</span><div class="jtrack"><span class="jstopmini" style="left:4%">🏁</span><span class="jstopmini" style="left:96%">🏆</span><span class="jtoken" style="left:${4+pct*0.92}%">${toks[i]}</span></div></div>`;
+    return `<div class="jlane"><span class="jwho">${medals[i]} ${esc(p.name)}${pcls(p)}</span><div class="jtrack"><span class="jstopmini" style="left:4%">🏁</span><span class="jstopmini" style="left:96%">🏆</span><span class="jtoken" style="left:${4+pct*0.92}%">${toks[i]}</span></div></div>`;
   }).join("");
   return `<h3>🗺️ Hành trình thám hiểm</h3>${lanes}`;
 }
@@ -1009,7 +1010,7 @@ function tLobby(){
   const render=async()=>{
     const {data}=await sb.from("players").select("*").eq("room_id",room.id).order("created_at");
     players=data||[];
-    const pl=document.getElementById("plist"); if(pl) pl.innerHTML=players.map(p=>`<span class="pname">${esc(p.name)}</span>`).join("");
+    const pl=document.getElementById("plist"); if(pl) pl.innerHTML=players.map(p=>`<span class="pname">${esc(p.name)}${pcls(p)}</span>`).join("");
     const pc=document.getElementById("pcount"); if(pc) pc.textContent=players.length;
     const b=document.getElementById("startBtn"); if(b){ b.disabled=!players.length; b.innerHTML=players.length?"▶ Bắt đầu!":"▶ Bắt đầu (chờ học sinh...)"; }
   };
@@ -1143,7 +1144,7 @@ function scoreTable(){
   const s=[...players].sort((a,b)=>b.score-a.score);
   if(!s.length) return `<p class="note">Chưa có học sinh.</p>`;
   return `<table class="score">${s.map((p,i)=>{ const st=streakMap[p.id]||0;
-    return `<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${st>=2?` <span class="streak">🔥x${st}</span>`:""}</td><td><b>${p.score}</b> đ</td></tr>`; }).join("")}</table>`;
+    return `<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${st>=2?` <span class="streak">🔥x${st}</span>`:""}</td><td><b>${p.score}</b> đ</td></tr>`; }).join("")}</table>`;
 }
 async function tNext(){
   SFX.click(); lockedOnce=false;
@@ -1163,7 +1164,7 @@ function tPodium(){
   unsubAll(); applyTheme();
   const advT=document.body.dataset.gtheme==="adventure";
   const s=[...players].sort((a,b)=>b.score-a.score);
-  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
+  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}${pcls(p)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
   const treasure=advT&&s[0]?`<p class="sub">🎁 <b>${esc(s[0].name)}</b> mở <b>Rương VÀNG</b>!${s[1]?` • <b>${esc(s[1].name)}</b> mở <b>Rương Bạc</b>`:""}${s[2]?` • <b>${esc(s[2].name)}</b> mở <b>Rương Đồng</b>`:""}</p>`:"";
   app.innerHTML=`<div class="card">
     <h1>${advT?"🗺️ Chuyến phiêu lưu hoàn thành!":"🏆 Vinh danh"}</h1>
@@ -1195,7 +1196,7 @@ async function tAutoDash(){
     const finCount=players.filter(p=>autoProgress(p.id).done>=total).length;
     const rows=players.map(p=>{
       const pr=autoProgress(p.id), fin=pr.done>=total;
-      return `<tr><td style="text-align:left"><b>${esc(p.name)}</b>${fin?" ✅":""}</td><td>${pr.done}/${total}</td><td><b>${p.score}</b> đ</td></tr>`;
+      return `<tr><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${fin?" ✅":""}</td><td>${pr.done}/${total}</td><td><b>${p.score}</b> đ</td></tr>`;
     }).join("");
     app.innerHTML=`<div class="card">
       <h2>🚀 Chế độ tự động — đang chơi</h2>
@@ -1226,15 +1227,15 @@ async function tAutoResults(){
   const N=room.question_set.length;
   const ansBy={}; autoAns.forEach(a=>{ (ansBy[a.player_id]=ansBy[a.player_id]||{})[a.q_index]=a; });
   const nCorrect=id=>{ const m=ansBy[id]||{}; let c=0; for(let i=0;i<N;i++) if(m[i]&&m[i].is_correct) c++; return c; };
-  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
+  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}${pcls(p)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
   app.innerHTML=`<div class="card">
     <h1>🏆 Vinh danh</h1>
     <div class="podium">${step(s[1],"s2","🥈")}${step(s[0],"s1","🥇")}${step(s[2],"s3","🥉")}</div>
     <h3>🔟 Top 10</h3>
-    <table class="score">${s.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b></td><td><b>${p.score}</b> đ</td><td>${nCorrect(p.id)}/${N} đúng</td></tr>`).join("")||'<tr><td colspan="4" class="note">Chưa có học sinh.</td></tr>'}</table>
+    <table class="score">${s.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}</td><td><b>${p.score}</b> đ</td><td>${nCorrect(p.id)}/${N} đúng</td></tr>`).join("")||'<tr><td colspan="4" class="note">Chưa có học sinh.</td></tr>'}</table>
     <h3>📊 Thống kê cả lớp</h3>
     <table class="score"><tr><th>#</th><th style="text-align:left">Tên</th><th>Điểm</th><th>Đúng</th><th>Sai</th><th>Tỉ lệ</th></tr>
-    ${s.map((p,i)=>{ const c=nCorrect(p.id); return `<tr><td>${i+1}</td><td style="text-align:left">${esc(p.name)}</td><td><b>${p.score}</b></td><td>${c}</td><td>${N-c}</td><td>${N?Math.round(c/N*100):0}%</td></tr>`; }).join("")}</table>
+    ${s.map((p,i)=>{ const c=nCorrect(p.id); return `<tr><td>${i+1}</td><td style="text-align:left">${esc(p.name)}${pcls(p)}</td><td><b>${p.score}</b></td><td>${c}</td><td>${N-c}</td><td>${N?Math.round(c/N*100):0}%</td></tr>`; }).join("")}</table>
     <button class="btn big green" onclick="tExportExcel()">📥 Xuất Excel</button><br>
     <button class="btn big" onclick="showTeacher()">🏠 Về trang giáo viên</button>
   </div>`;
@@ -1244,10 +1245,10 @@ async function tExportExcel(){
   const qs=room.question_set, N=qs.length, letters=["A","B","C","D"];
   const s=[...players].sort((a,b)=>b.score-a.score);
   const ansBy={}; autoAns.forEach(a=>{ (ansBy[a.player_id]=ansBy[a.player_id]||{})[a.q_index]=a; });
-  const head1=["STT","Họ tên","Điểm","Số câu đúng","Số câu sai","Tỉ lệ đúng (%)","Xếp hạng"];
+  const head1=["STT","Họ tên","Lớp","Điểm","Số câu đúng","Số câu sai","Tỉ lệ đúng (%)","Xếp hạng"];
   const rows1=s.map((p,i)=>{ const m=ansBy[p.id]||{}; let c=0; for(let qi=0;qi<N;qi++) if(m[qi]&&m[qi].is_correct) c++;
-    return [i+1,p.name,p.score,c,N-c,N?Math.round(c/N*100):0,i+1]; });
-  const head2=["Họ tên",...qs.map((q,qi)=>`Câu ${qi+1}`)];
+    return [i+1,p.name,p.class_name||"",p.score,c,N-c,N?Math.round(c/N*100):0,i+1]; });
+  const head2=["Họ tên","Lớp",...qs.map((q,qi)=>`Câu ${qi+1}`)];
   const rows2=s.map(p=>{ const m=ansBy[p.id]||{};
     const cells=qs.map((q,qi)=>{ const a=m[qi]; if(!a) return "—";
       if(q.type==="reorder"){ const cc=a.option_index||0; return (a.is_correct?"✅ ":"⚠️ ")+cc+"/"+q.options.length+" vị trí"; }
@@ -1256,7 +1257,7 @@ async function tExportExcel(){
       const disp=letters[order.indexOf(a.option_index)]||"•";
       return (a.is_correct?"✅ ":"❌ ")+disp+". "+String(q.options[a.option_index]||"").slice(0,30);
     });
-    return [p.name,...cells]; });
+    return [p.name,p.class_name||"",...cells]; });
   const fname=`Ket-qua_${room.pin}_${new Date().toISOString().slice(0,10)}.xlsx`;
   try{
     if(window.XLSX){
@@ -1281,23 +1282,67 @@ async function tExportExcel(){
 let sCur=-1;
 function showStudentJoin(){
   sbInit(); mode="student"; unsubAll();
+  const gradeOpts=[1,2,3,4,5,6].map(g=>`<option value="${g}">Khối ${g}</option>`).join("");
+  const numOpts=Array.from({length:15},(_,i)=>`<option value="${i+1}">Lớp ${i+1}</option>`).join("");
   app.innerHTML=`<div class="card"><h2>🎒 Học sinh vào phòng</h2>
     <input type="text" id="jPin" inputmode="numeric" placeholder="Mã PIN..." maxlength="6">
-    <input type="text" id="jName" placeholder="Tên của em..." maxlength="24">
+    <input type="text" id="jName" placeholder="Họ và tên thật của em..." maxlength="24">
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <select id="jGrade" style="max-width:200px"><option value="">— Chọn khối —</option>${gradeOpts}</select>
+      <select id="jClassNum" style="max-width:200px"><option value="">— Chọn lớp —</option>${numOpts}</select>
+    </div>
     <br><button class="btn big orange" onclick="sJoin()">🚀 Vào phòng</button>
-    <p class="note">Hỏi thầy mã PIN đang hiện trên màn hình lớp nhé!</p></div>`;
+    <p class="note">Hỏi thầy mã PIN đang hiện trên màn hình lớp nhé!<br>✍️ Ghi <b>họ và tên thật</b> (đầy đủ họ + tên, viết hoa chữ cái đầu) và <b>chọn đúng lớp</b> của em — không dùng biệt danh nhé!</p></div>`;
 }
+/* Kiểm tra tên học sinh đúng quy cách: họ tên thật, không nickname, không chữ vô nghĩa.
+   Trả về {ok:true,name:Tên Đã Chuẩn Hóa} hoặc {ok:false,msg:lý do} */
+function validateStudentName(raw){
+  const name=(raw||"").replace(/\s+/g," ").trim();
+  if(!name) return {ok:false,msg:"Em chưa nhập họ và tên!"};
+  if(name.length<5) return {ok:false,msg:"Họ và tên hơi ngắn — em ghi đầy đủ họ và tên thật nhé!"};
+  if(/[^A-Za-zÀ-ỹ ]/.test(name)) return {ok:false,msg:"Họ và tên chỉ gồm chữ cái thôi em — không dùng số, ký hiệu hay biểu tượng nhé!"};
+  const words=name.split(" ");
+  if(words.length<2) return {ok:false,msg:"Em ghi đầy đủ HỌ và TÊN (ít nhất 2 chữ) nhé — không ghi mỗi tên hay biệt danh!"};
+  if(words.length>5) return {ok:false,msg:"Họ và tên dài quá — em ghi đúng họ tên thật của mình thôi nhé!"};
+  const vowels="aăâeêioôơuưyáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵđ";
+  const banned=["asdf","qwer","zxcv","admin","test","hack","nick","clone"," acc","vip","pro","game","fake"];
+  const low=" "+name.toLowerCase()+" ";
+  for(const b of banned){ if(low.includes(b)) return {ok:false,msg:"Tên này giống biệt danh/tên đùa rồi — em ghi họ tên thật của mình nhé!"}; }
+  for(const w of words){
+    if(w.length<2) return {ok:false,msg:"Mỗi chữ trong họ tên phải có từ 2 chữ cái — em kiểm tra lại nhé!"};
+    if(w.length>12) return {ok:false,msg:"Có chữ trong tên dài bất thường — em ghi lại đúng họ tên thật nhé!"};
+    const lw=w.toLowerCase();
+    if(![...lw].some(c=>vowels.includes(c))) return {ok:false,msg:"“"+w+"” không giống chữ tiếng Việt — em ghi họ tên thật nhé!"};
+    if(new Set(lw).size===1) return {ok:false,msg:"“"+w+"” toàn chữ giống nhau — em ghi họ tên thật nhé!"};
+    if(/(.)\1\1/.test(lw)) return {ok:false,msg:"“"+w+"” có chữ lặp bất thường — em ghi họ tên thật nhé!"};
+  }
+  const lowerWords=words.map(w=>w.toLowerCase());
+  if(new Set(lowerWords).size===1) return {ok:false,msg:"Họ và tên không thể là các chữ giống hệt nhau — em ghi họ tên thật nhé!"};
+  const proper=words.map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+  return {ok:true,name:proper};
+}
+/* Huy hiệu lớp cạnh tên học sinh, ví dụ: An <span>4/3</span> */
+function pcls(p){ return p&&p.class_name?` <span class="pcls">${esc(p.class_name)}</span>`:""; }
 async function sJoin(){
   const pin=document.getElementById("jPin").value.trim();
-  const name=document.getElementById("jName").value.trim();
+  const chk=validateStudentName(document.getElementById("jName").value);
   if(pin.length<4){ alert("Em nhập mã PIN nhé!"); return; }
-  if(!name){ alert("Em nhập tên nhé!"); return; }
+  if(!chk.ok){ alert(chk.msg); return; }
+  const name=chk.name;
+  const grade=document.getElementById("jGrade").value, cnum=document.getElementById("jClassNum").value;
+  if(!grade||!cnum){ alert("Em chọn KHỐI và LỚP của mình nhé — chọn đúng lớp mới vào chơi được!"); return; }
+  const className=grade+"/"+cnum;
   SFX.click();
   const {data}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1);
   if(!data||!data.length){ alert("Không tìm thấy phòng! Kiểm tra lại PIN nhé."); return; }
   room=data[0];
   if(room.phase!=="lobby"){ alert("Phòng này đã bắt đầu rồi. Em chờ ván sau nhé!"); return; }
-  const {data:p,error}=await sb.from("players").insert({room_id:room.id,name}).select().single();
+  let res=await sb.from("players").insert({room_id:room.id,name,class_name:className}).select().single();
+  if(res.error){ /* Máy chủ chưa có cột lớp (bản cũ) -> vào phòng bằng tên, không để HS bị kẹt */
+    res=await sb.from("players").insert({room_id:room.id,name}).select().single();
+    if(!res.error&&res.data) res.data.class_name=className;
+  }
+  const p=res.data, error=res.error;
   if(error){ alert("Lỗi vào phòng: "+error.message); return; }
   myPlayer=p; sCur=-1; myAnswer=null; sAutoStarted=false; SFX.join();
   subRoomStudent(); sLobby();
@@ -1638,7 +1683,7 @@ function sPodium(){
       <h2>${esc(myPlayer.name)} — hạng ${rank}</h2>
       <p class="sub">Tổng điểm: <b>${me?me.score:0}</b></p>
       <h3>🏅 Top 5</h3>
-      <table class="score">${all.slice(0,5).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b></td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>
+      <table class="score">${all.slice(0,5).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}</td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>
       <button class="btn big green" onclick="goHome()">🏠 Chơi ván mới</button></div>`;
     SFX.victory(); fireworks(6);
   });
@@ -1798,7 +1843,7 @@ async function sAutoPodium(){
     <h2>${esc(myPlayer.name)} — hạng ${rank}/${all.length}</h2>
     <p class="sub">Tổng điểm: <b>${me?me.score:0}</b> • Đúng <b>${correct}/${N}</b> câu</p>
     <h3>🔟 Top 10</h3>
-    <table class="score">${all.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${p.id===myPlayer.id?" ⬅️":""}</td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>
+    <table class="score">${all.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${p.id===myPlayer.id?" ⬅️":""}</td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>
   </div>`;
   if(rank<=3){ SFX.victory(); fireworks(6); } else SFX.fanfare();
 }
