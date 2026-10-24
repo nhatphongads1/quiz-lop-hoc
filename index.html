@@ -215,7 +215,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="lop-ten-20261024";
+const BUILD_ID="lop1-12-20261024";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -1282,7 +1282,7 @@ async function tExportExcel(){
 let sCur=-1;
 function showStudentJoin(){
   sbInit(); mode="student"; unsubAll();
-  const gradeOpts=[1,2,3,4,5,6].map(g=>`<option value="${g}">Khối ${g}</option>`).join("");
+  const gradeOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(g=>`<option value="${g}">Khối ${g}</option>`).join("");
   const numOpts=Array.from({length:15},(_,i)=>`<option value="${i+1}">Lớp ${i+1}</option>`).join("");
   app.innerHTML=`<div class="card"><h2>🎒 Học sinh vào phòng</h2>
     <input type="text" id="jPin" inputmode="numeric" placeholder="Mã PIN..." maxlength="6">
