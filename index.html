@@ -168,6 +168,12 @@
   .stag.cur{ background:#fff7dd; border-color:#b5651d; }
   .stagebanner{ background:#fff7dd; border:3px solid #e0a800; border-radius:14px; padding:10px; font-weight:800; margin:10px 0; }
   .bossbar{ height:24px; background:#ffe1e1; border:2px solid #d63c3c; border-radius:999px; overflow:hidden; margin:8px 0; }
+  /* Man hinh chao boss: nen do nhap nhay cham (0.6s, khong chop nhanh), rung nhe, chu phong to — hoi hop nhung an toan */
+  .bossintro{ background:#3a0d0d; border:4px solid #ff3b3b; border-radius:18px; padding:18px; animation:bossflash 0.6s infinite alternate, bossshake 0.5s infinite; }
+  .bossintro h1{ font-size:2.4rem; color:#ffe14d; line-height:1.2; animation:bosspulse 0.6s infinite alternate; }
+  @keyframes bossflash{ from{ background:#3a0d0d; } to{ background:#5c1212; } }
+  @keyframes bossshake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-4px) rotate(-0.5deg); } 75%{ transform:translateX(4px) rotate(0.5deg); } }
+  @keyframes bosspulse{ from{ transform:scale(1); } to{ transform:scale(1.08); } }
   .bossbar>div{ height:100%; background:linear-gradient(90deg,#ff6b6b,#d63c3c); }
   .stageimg{ width:100%; max-width:560px; border-radius:16px; margin:6px 0 10px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
   .coinchip{ display:inline-block; background:#fff7dd; border:2px solid #e0a800; border-radius:999px; padding:4px 12px; font-weight:900; margin:6px 0; }
@@ -237,7 +243,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="fix3-20261027";
+const BUILD_ID="boss-auto-20261027";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -1111,7 +1117,7 @@ async function aiSave(){
 <script>
 /* ================= GIÁO VIÊN: ĐIỀU KHIỂN PHÒNG ================= */
 let lockedOnce=false;
-function unsubAll(){ [channel,channel2,channel3].forEach(c=>{try{c&&c.unsubscribe()}catch(e){}}); channel=channel2=channel3=null; if(timerInt){clearInterval(timerInt);timerInt=null;} }
+function unsubAll(){ [channel,channel2,channel3].forEach(c=>{try{c&&c.unsubscribe()}catch(e){}}); channel=channel2=channel3=null; if(timerInt){clearInterval(timerInt);timerInt=null;} if(window._bossIntroTO){clearTimeout(window._bossIntroTO);window._bossIntroTO=null;} if(window._bossAdvTO){clearTimeout(window._bossAdvTO);window._bossAdvTO=null;} }
 async function tCreateRoom(){
   SFX.click();
   const sid=document.getElementById("setSel").value;
@@ -1160,7 +1166,7 @@ async function tRejoin(){
   const {data:pl}=await sb.from("players").select("*").eq("room_id",room.id).order("created_at");
   players=pl||[];
   if(room.phase==="lobby") tLobby();
-  else if(room.phase==="boss"){ bossMode=room.mode||"live"; bossPlayed=true; tBossResume(); }
+  else if(room.phase==="boss"||room.phase==="bossintro"){ bossMode=room.mode||"live"; bossPlayed=true; tBossResume(); }
   else if(room.phase==="stage") tStageScreen();
   else if(room.phase==="question"){ const m=room.mode||"live"; if(m==="auto") tAutoDash(); else if(m==="exam") tExamDash(); else tQuestion(); }
   else if(room.phase==="reveal") tShowReveal();
@@ -1380,14 +1386,33 @@ function tPodium(){
    xếp hạng (chỉ Xu + huy hiệu). Trạng thái boss đồng bộ qua rooms.phase="boss" + current=bossIdx. */
 async function startBoss(m){
   bossMode=m||(room.mode||"live"); bossPlayed=true; bossWon=false; bossResults=[];
-  unsubAll();
+  unsubAll(); window._bossAdvBusy=false;
+  if(window._bossIntroTO){ clearTimeout(window._bossIntroTO); window._bossIntroTO=null; }
   const {data}=await sb.from("answers").select("player_id,q_index,is_correct").eq("room_id",room.id);
   bossQs=bossPickQs(data||[], room.question_set.length);
   bossHp=100; bossIdx=0;
-  await sb.from("rooms").update({phase:"boss",current:0,question_started_at:new Date().toISOString()}).eq("id",room.id);
-  room.phase="boss"; room.current=0; room.question_started_at=new Date().toISOString();
-  tBossTeacher();
+  // Man hinh chao boss (3 giay, ca thay + HS) roi moi vao cau boss 1 — dong ho chi chay khi vao cau hoi
+  await sb.from("rooms").update({phase:"bossintro",current:0}).eq("id",room.id);
+  room.phase="bossintro"; room.current=0;
+  applyTheme(); app.innerHTML=bossIntroHtml(); SFX.fanfare();
+  const rid=room.id;
+  window._bossIntroTO=setTimeout(async()=>{
+    window._bossIntroTO=null;
+    if(!room||room.id!==rid||room.phase!=="bossintro") return; // thay da roi phong thi thoi
+    await sb.from("rooms").update({phase:"boss",current:0,question_started_at:new Date().toISOString()}).eq("id",room.id);
+    room.phase="boss"; room.current=0; room.question_started_at=new Date().toISOString();
+    tBossTeacher();
+  },3000);
 }
+function bossIntroHtml(){
+  return `<div class="card bossintro">
+    <h1>👹 TRÙM VIRUS<br>XUẤT HIỆN!</h1>
+    <img class="stageimg" src="${BOSS_IMG_URL}" alt="Trùm Virus thân thiện" onerror="this.style.display='none'">
+    <p class="sub" style="color:#ffe14d">⚔️ Cả lớp cùng nhau trả lời là thắng thôi! Chuẩn bị... 3... 2... 1...</p>
+    <div class="bossbar"><div style="width:100%"></div></div>
+  </div>`;
+}
+function sBossIntro(){ if(!room||room.phase!=="bossintro") return; if(document.querySelector(".bossintro")) return; applyTheme(); app.innerHTML=bossIntroHtml(); SFX.fanfare(); }
 async function tBossResume(){ // thầy vào lại phòng cũ đang ở giữa trận boss: dựng lại từ answers
   bossMode=room.mode||"live"; bossPlayed=true;
   const {data}=await sb.from("answers").select("player_id,q_index,is_correct").eq("room_id",room.id);
@@ -1396,13 +1421,13 @@ async function tBossResume(){ // thầy vào lại phòng cũ đang ở giữa t
   bossIdx=room.current||0; bossHp=bossHpAfter(all,bossIdx); bossResults=[];
   for(let k=0;k<bossIdx;k++){ const d=bossDmgFor(all,k); bossResults.push({k,qi:bossQs[k],correct:d.correct,total:d.total,dmg:d.dmg,hp:bossHpAfter(all,k+1)}); }
   bossWon=bossHp<=0;
-  await sb.from("rooms").update({question_started_at:new Date().toISOString()}).eq("id",room.id);
-  room.question_started_at=new Date().toISOString();
+  await sb.from("rooms").update({phase:"boss",question_started_at:new Date().toISOString()}).eq("id",room.id);
+  room.phase="boss"; room.question_started_at=new Date().toISOString();
   tBossTeacher();
 }
 function tBossTeacher(){
   const q=room.question_set[bossQs[bossIdx]]; if(!q){ finishBoss(); return; }
-  applyTheme(); bossLocked=false;
+  applyTheme(); bossLocked=false; window._bossAdvBusy=false;
   const letters=["A","B","C","D"], order=optOrder(q,bossQs[bossIdx]);
   const typeNote=q.type==="truefalse"?"• Dạng Đúng/Sai":q.type==="reorder"?"• 🔢 Xếp đúng thứ tự":q.type==="fillblank"?"• ✏️ Điền từ":"";
   const optsHtml=q.type==="fillblank"
@@ -1421,6 +1446,7 @@ function tBossTeacher(){
     ${optsHtml}
     <p class="sub">✅ Đã trả lời: <b id="acount">0</b> / ${players.length} bạn</p>
     <button class="btn big red" onclick="tBossLock()">⚔️ Chốt đòn</button>
+    <p class="sub">⏱️ Hết giờ tự chốt đòn, xong tự chuyển câu tiếp theo — thầy không cần bấm gì thêm.</p>
   </div>`;
   lastTick=99;
   if(timerInt) clearInterval(timerInt);
@@ -1460,11 +1486,16 @@ async function tBossLock(){
     <div class="bossbar"><div style="width:${bossHp}%"></div></div>
     <p class="sub">👹 Trùm Virus còn <b>${bossHp}/100</b> máu</p>
     ${bossWon?`<div class="stagebanner">🎉 Cả lớp đã đánh bại 👹 Trùm Virus! +30 Xu 🪙 mỗi bạn</div>`:last?`<div class="stagebanner">😄 Trùm Virus chạy trốn vì hết giờ! Lần sau cả lớp cố gắng hơn nhé 💪</div>`:""}
+    <p class="sub">⏱️ Tự động chuyển sau 3 giây… (thầy bấm nút để chuyển ngay)</p>
     <button class="btn big green" onclick="tBossNext()">${(bossWon||last)?"🏁 Xem vinh danh":"Câu boss tiếp theo ➡"}</button>
   </div>`;
   if(bossWon){ SFX.victory(); fireworks(6); } else SFX.fanfare();
+  if(window._bossAdvTO) clearTimeout(window._bossAdvTO);
+  window._bossAdvTO=setTimeout(()=>{ window._bossAdvTO=null; tBossNext(); },3500);
 }
 async function tBossNext(){
+  if(window._bossAdvBusy) return; window._bossAdvBusy=true;
+  if(window._bossAdvTO){ clearTimeout(window._bossAdvTO); window._bossAdvTO=null; }
   window._bossLockOk=false;
   SFX.click();
   if(bossWon||bossIdx>=bossQs.length-1){ finishBoss(); return; }
@@ -1556,11 +1587,11 @@ async function tExportExcel(){
   const ansBy={}; autoAns.forEach(a=>{ (ansBy[a.player_id]=ansBy[a.player_id]||{})[a.q_index]=a; });
   const corr=id=>{ const m=ansBy[id]||{}; let c=0; for(let qi=0;qi<N;qi++) if(m[qi]&&m[qi].is_correct) c++; return c; };
   const s=[...players].sort((a,b)=> isExam ? (corr(b.id)-corr(a.id)) : (b.score-a.score));
-  const head1=["STT","Họ tên","Lớp",isExam?"Điểm /10":"Điểm","Số câu đúng","Số câu sai","Tỉ lệ đúng (%)","Xếp hạng"];
+  const head1=["STT","Họ tên","Lớp",isExam?"Điểm số /10":"Điểm số","Số câu đúng","Số câu sai","Tỉ lệ đúng (%)","Xếp hạng"];
   const rows1=s.map((p,i)=>{ const c=corr(p.id);
     return [i+1,p.name,p.class_name||"",isExam?(c*10/N).toFixed(1):p.score,c,N-c,N?Math.round(c/N*100):0,i+1]; });
-  const head2=["Họ tên","Lớp",...qs.map((q,qi)=>`Câu ${qi+1}`)];
-  const rows2=s.map(p=>{ const m=ansBy[p.id]||{};
+  const head2=["Họ tên","Lớp","Điểm số",...qs.map((q,qi)=>`Câu ${qi+1}`)];
+  const rows2=s.map(p=>{ const m=ansBy[p.id]||{}; const sc=isExam?(corr(p.id)*10/N).toFixed(1):p.score;
     const cells=qs.map((q,qi)=>{ const a=m[qi]; if(!a) return "—";
       if(q.type==="reorder"){ const cc=a.option_index||0; return (a.is_correct?"✅ ":"⚠️ ")+cc+"/"+q.options.length+" vị trí"; }
       if(q.type==="fillblank") return a.is_correct?"✅ Đúng":"❌ Sai";
@@ -1569,7 +1600,7 @@ async function tExportExcel(){
       const disp=letters[order.indexOf(a.option_index)]||"•";
       return (a.is_correct?"✅ ":"❌ ")+disp+". "+String(q.options[a.option_index]||"").slice(0,30);
     });
-    return [p.name,p.class_name||"",...cells]; });
+    return [p.name,p.class_name||"",sc,...cells]; });
   const fname=`Ket-qua_${room.pin}_${new Date().toISOString().slice(0,10)}.xlsx`;
   try{
     if(window.XLSX){
@@ -1783,6 +1814,7 @@ function subRoomStudent(){
   if(!window._sVisHook){ window._sVisHook=true; document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&room&&myPlayer) sSyncRoom(false); }); }
 }
 function onRoomChange(){
+  if(room.phase==="bossintro"){ sBossIntro(); return; }
   if(sExamMode()){
     if(room.phase==="question"){ if(!sExamStarted){ sExamStarted=true; sExamBeginSafe(); } }
     else if(room.phase==="podium"){ sExamPodium(); }
@@ -2172,7 +2204,7 @@ async function sBossQ(){
       if(!sBossAnswered){ if(q.type==="reorder") sBossSubmitOrder(); else if(q.type==="fillblank") sBossSubmitBlank(); } }
   },250);
 }
-function sBossWaitHtml(){ return `<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ thầy chốt đòn đánh boss nhé...</p><span class="spin"></span></div>`; }
+function sBossWaitHtml(){ return `<div class="card"><h2>✅ Đã trả lời!</h2><p class="sub">Chờ xem kết quả đòn đánh nhé...</p><span class="spin"></span></div>`; }
 async function sBossAnswer(d){
   if(sBossAnswered||!sBossQCur) return; sBossAnswered=true;
   const q=sBossQCur, order=optOrder(q,sBossOrigQi), i=order[d];
