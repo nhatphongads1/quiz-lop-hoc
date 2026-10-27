@@ -237,7 +237,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="chang-20261027";
+const BUILD_ID="fix-20261027";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -436,6 +436,24 @@ function selectPlan(id){
   SFX.click();
 }
 function closeUpgrade(){ const m=document.getElementById("upModal"); if(m) m.style.display="none"; }
+/* ===== Xac nhan trong trang (thay confirm() cua trinh duyet) =====
+   confirm() goc bi trinh duyet tu dong tat (tra ve false) khi chay headless,
+   va tren dien thoai no hien hop thoai he thong kho bam — 3 nut Ket thuc/Nop bai
+   vi the bam khong co tac dung. Dung hop thoai trong trang, nut to nhu cac nut khac. */
+let cfYesCb=null;
+function askConfirm(msg,onYes){
+  let m=document.getElementById("cfModal");
+  if(!m){ m=document.createElement("div"); m.id="cfModal"; m.className="upmodal";
+    m.addEventListener("click",e=>{ if(e.target===m) closeConfirm(); });
+    document.body.appendChild(m); }
+  cfYesCb=onYes;
+  m.innerHTML=`<div class="upbox"><h2>\u2753 Xác nhận</h2><p class="sub">${msg}</p>
+    <button class="btn big green" onclick="confirmYes()">\u2705 Đồng ý</button><br>
+    <button class="btn big" onclick="closeConfirm()">\u21A9 Để sau</button></div>`;
+  m.style.display="flex";
+}
+function confirmYes(){ const cb=cfYesCb; cfYesCb=null; closeConfirm(); if(cb) cb(); }
+function closeConfirm(){ const m=document.getElementById("cfModal"); if(m) m.style.display="none"; }
 function canAdventure(){ const s=sess(); return !!s; } // đã đăng nhập (trial/paid/admin) là được dùng
 function pickTheme(t){
   if(t==="adventure"&&!canAdventure()){ alert("Thầy đăng nhập tài khoản để mở giao diện Phiêu lưu nhé! (Tài khoản dùng thử cũng được.)"); return; }
@@ -1161,7 +1179,7 @@ function tLobby(){
     <h2>${adv?"🧭 Mật mã lên đường":"🔑 Mã PIN phòng"}</h2><div class="pin">${room.pin}</div>
     <p class="sub">${subHtml}</p>
     ${journey}
-    <h3>🗺️ Nhiệm vụ theo chặng</h3>${stageMapHtml(-1,n)}
+    ${(room.mode||"live")==="exam"?"":`<h3>🗺️ Nhiệm vụ theo chặng</h3>${stageMapHtml(-1,n)}`}
     <h3>🎒 Đã vào: <span id="pcount">0</span> bạn</h3>
     <div class="plist" id="plist"></div><br>
     <button class="btn big green" id="startBtn" onclick="tStartGame()" disabled>▶ Bắt đầu (chờ học sinh...)</button><br>
@@ -1418,6 +1436,7 @@ async function tBossLock(){
   if(bossLocked) return; bossLocked=true;
   if(timerInt){ clearInterval(timerInt); timerInt=null; }
   SFX.click();
+  await new Promise(r=>setTimeout(r,1500)); // cho dap an cuoi giay cua HS ve kip truoc khi chot
   const {data}=await sb.from("answers").select("*").eq("room_id",room.id).eq("q_index",BOSS_QBASE+bossIdx);
   const rows=data||[]; const correct=rows.filter(a=>a.is_correct).length;
   const dmg=rows.length?Math.round(correct/rows.length*35):0;
@@ -1487,8 +1506,8 @@ async function tAutoDash(){
       const p=players.find(x=>x.id===payload.new.id); if(p) p.score=payload.new.score; render(); })
     .subscribe();
 }
-async function tAutoEnd(){
-  if(!confirm("Kết thúc bài? Bạn nào chưa làm xong sẽ dừng lại.")) return;
+function tAutoEnd(){ askConfirm("Kết thúc bài? Bạn nào chưa làm xong sẽ dừng lại.",()=>tAutoEndGo()); }
+async function tAutoEndGo(){
   SFX.click(); unsubAll();
   if(bossOn){ startBoss("auto"); return; }
   await sb.from("rooms").update({phase:"podium"}).eq("id",room.id);
@@ -1611,8 +1630,8 @@ async function tExamDash(){
       const p=players.find(x=>x.id===payload.new.id); if(p){ p.score=payload.new.score; if(payload.new.exam_done!=null) p.exam_done=payload.new.exam_done; } render(); })
     .subscribe();
 }
-async function tExamEnd(auto){
-  if(!auto&&!confirm("Kết thúc bài kiểm tra? Bạn nào chưa nộp sẽ được tính theo số câu đã làm.")) return;
+function tExamEnd(auto){ if(auto){ tExamEndGo(); return; } askConfirm("Kết thúc bài kiểm tra? Bạn nào chưa nộp sẽ được tính theo số câu đã làm.",()=>tExamEndGo()); }
+async function tExamEndGo(){
   SFX.click(); unsubAll();
   if(examTmrInt){ clearInterval(examTmrInt); examTmrInt=null; }
   await sb.from("rooms").update({phase:"podium"}).eq("id",room.id);
@@ -1779,7 +1798,7 @@ function sLobby(){
     <p class="sub">Em đã gia nhập biệt đội. Chờ thầy bắt đầu chuyến phiêu lưu nhé...</p>`
     :`<h2>Chào <b>${esc(myPlayer.name)}</b>! 🎉</h2>
     <p class="sub">Em đã vào phòng. Chờ thầy bắt đầu nhé...</p>`}<span class="spin"></span>
-    ${room&&room.question_set?stageMapHtml(-1,room.question_set.length):""}
+    ${(room&&room.question_set&&(room.mode||"live")!=="exam")?stageMapHtml(-1,room.question_set.length):""}
     <p class="note">Thầy đã bắt đầu mà em chưa thấy câu hỏi?</p>
     <button class="btn small" onclick="sSyncRoom(true)">🔄 Đồng bộ</button>
     <button class="btn small" onclick="location.reload()">♻️ Tải lại trang</button>
@@ -1870,8 +1889,9 @@ function spinPanelHtml(correctCount){
   </div>`;
 }
 let reoDrag=null, reoDragOi=null; // kéo-thả câu sắp xếp
+let sAutoQCur=null; // cau HS dang lam o che do Tu dong (room.current khong doi o che do nay nen qNow() sai cau)
 function sRenderReorder(){
-  const q=(sReoExam&&sExamMode())?sExamQ:(sBossActive?sBossQCur:qNow()); if(!q) return;
+  const q=(sReoExam&&sExamMode())?sExamQ:(sBossActive?sBossQCur:(sAutoMode()?sAutoQCur:qNow())); if(!q) return;
   const box=document.getElementById("sopts"); if(!box) return;
   box.innerHTML=sOrder.map((oi,r)=>`
     <div class="sreorow" data-r="${r}" draggable="true">
@@ -2193,7 +2213,7 @@ async function sAutoBeginSafe(){
 }
 function sAutoBegin(){ sAutoIdx=0; sAutoStreak=0; sAutoCorrect=0; myAnswer=null; if(isAdv()) sAutoStageScreen(); else sAutoQ(); }
 function sAutoQ(){
-  const qs=room.question_set, q=qs[sAutoIdx]; if(!q) return; applyTheme();
+  const qs=room.question_set, q=qs[sAutoIdx]; if(!q) return; applyTheme(); sAutoQCur=q;
   sOrd=[]; sOrder=[]; myAnswer=null; sAutoBusy=false; sAutoAdv=false;
   const letters=["A","B","C","D"], order=optOrder(q,sAutoIdx); // mỗi câu đảo khác nhau
   let body="";
@@ -2450,9 +2470,9 @@ async function sExamUpsert(origIdx){
   const {oi,ok}=examAnsScore(q,a);
   try{ await withTO(sb.from("answers").upsert({room_id:room.id,player_id:myPlayer.id,q_index:origIdx,option_index:oi,is_correct:ok,ms:0},{onConflict:"room_id,player_id,q_index"}),8000); }catch(e){}
 }
-async function sExamSubmit(auto){
+function sExamSubmit(auto){ if(sExamSubmitted) return; if(auto){ sExamSubmitGo(); return; } askConfirm("Em chắc chắn muốn nộp bài? Sau khi nộp sẽ không sửa được nữa.",()=>sExamSubmitGo()); }
+async function sExamSubmitGo(){
   if(sExamSubmitted) return;
-  if(!auto&&!confirm("Em chắc chắn muốn nộp bài? Sau khi nộp sẽ không sửa được nữa.")) return;
   sExamSubmitted=true;
   if(examTmrInt){ clearInterval(examTmrInt); examTmrInt=null; }
   sExamSaveCurrent();
