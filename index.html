@@ -237,7 +237,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="fix2-20261027";
+const BUILD_ID="fix3-20261027";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -1925,11 +1925,14 @@ function sRenderReorder(){
     row.addEventListener("touchcancel",()=>sReoTE());
   });
 }
+function sReoExamTouch(){ // HS vua xep o bai Kiem tra: luu ngay de bo dem "Da lam" nhay len, khoi doi chuyen cau
+  if(!sReoExam||!sExamQ) return; const origIdx=sExamOrd[sExamIdx];
+  sExamAns[origIdx]={kind:"reorder",order:[...sOrder]}; examSaveLS(); sExamDoneLine(); }
 function sReoMove(r,dir){
   if(myAnswer!==null) return;
   const n=r+dir; if(n<0||n>=sOrder.length) return;
   [sOrder[r],sOrder[n]]=[sOrder[n],sOrder[r]];
-  SFX.click(); sRenderReorder();
+  sReoExamTouch(); SFX.click(); sRenderReorder();
 }
 function sReoDrop(targetR){
   if(myAnswer!==null||reoDragOi===null||reoDragOi===undefined) return;
@@ -1937,7 +1940,7 @@ function sReoDrop(targetR){
   sOrder.splice(from,1);
   let t=targetR; if(from<targetR) t=targetR-1;
   sOrder.splice(Math.max(0,Math.min(sOrder.length,t)),0,reoDragOi);
-  reoDragOi=null; SFX.click(); sRenderReorder();
+  reoDragOi=null; sReoExamTouch(); SFX.click(); sRenderReorder();
 }
 function sReoTS(e,row){
   if(myAnswer!==null||e.target.closest("button")) return;
@@ -1966,11 +1969,11 @@ function sReoTE(){
   if(ni!==null&&ni!==undefined&&ni!==r){
     const [oi]=sOrder.splice(r,1);
     sOrder.splice(ni,0,oi);
-    SFX.click();
+    sReoExamTouch(); SFX.click();
   }
   sRenderReorder();
 }
-function sResetOrder(){ if(myAnswer!==null) return; sOrder=[...sOrd]; SFX.click(); sRenderReorder(); }
+function sResetOrder(){ if(myAnswer!==null) return; sOrder=[...sOrd]; sReoExamTouch(); SFX.click(); sRenderReorder(); }
 async function sSubmitOrder(auto){
   if(myAnswer!==null) return;
   const q=qNow(); if(!q) return;
