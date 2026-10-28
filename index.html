@@ -243,7 +243,8 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="ai-bloom-20261028";
+const BUILD_ID="gmail-sheet-20261029";
+const SHEET_LOG_URL="https://script.google.com/macros/s/AKfycbzQEzXXgUk23oYVJxF28Bj6fYzrngn662NKhRWrjuxTvqooTtTZy7EZf6EPx5R54cZY/exec";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -794,6 +795,11 @@ async function tRegister(){
     const exp=new Date(Date.now()+7*86400000).toISOString();
     const {data,error}=await sb.from("licenses").insert({username:gmail,pass_hash:h,plan:"trial",expires_at:exp,note:name}).select().single();
     if(error) throw error;
+    // Ghi log đăng ký vào Google Sheet (không chặn đăng nhập nếu ghi lỗi)
+    try{
+      const fmt=d=>{const p=n=>String(n).padStart(2,"0");return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes());};
+      fetch(SHEET_LOG_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({name:name,gmail:gmail,date:fmt(new Date()),plan:"trial",exp:fmt(new Date(exp))})}).catch(()=>{});
+    }catch(_){}
     sessionStorage.setItem("tq_sess",JSON.stringify({u:gmail,plan:"trial",exp}));
     SFX.correct(); const pt=pendingTab; pendingTab=null; showTeacherMain(pt);
   }catch(e){
