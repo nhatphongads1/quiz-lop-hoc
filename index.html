@@ -243,7 +243,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="login-gate-20261028";
+const BUILD_ID="login-fix-20261028";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -724,20 +724,29 @@ function showTeacherLogin(){
   </div>`;
 }
 async function tLogin(){
-  const u=document.getElementById("adUser").value.trim();
+  const uRaw=document.getElementById("adUser").value.trim();
   const p=document.getElementById("adPass").value;
   const errBox=document.getElementById("loginErr");
   const err=m=>{ errBox.innerHTML=`<div class="cfgwarn">⚠️ ${m}</div>`; };
-  if(!u||!p){ err("Thầy nhập tên đăng nhập và mật khẩu nhé!"); return; }
-  if(u===ADMIN_USER&&p===ADMIN_PASS){
+  if(!uRaw||!p){ err("Thầy nhập tên đăng nhập và mật khẩu nhé!"); return; }
+  if(uRaw===ADMIN_USER&&p===ADMIN_PASS){
     sessionStorage.setItem("tq_sess",JSON.stringify({u:"Admin",plan:"owner",exp:null}));
     SFX.correct(); const pt=pendingTab; pendingTab=null; showTeacherMain(pt); return;
   }
+  // Ten dang nhap khi dang ky duoc luu la Gmail viet thuong — dang nhap cung chuan hoa nhu vay
+  // de go HOA/thuong deu vao duoc. Chap nhan ca ten ngan (VD "nhatphongads1") bang cach
+  // thu them "@gmail.com" khi lan tim dau tien khong thay tai khoan.
+  const u=uRaw.toLowerCase();
   try{
     const h=await sha256(p);
-    const {data,error}=await sb.from("licenses").select("*").eq("username",u).eq("pass_hash",h).limit(1);
+    let {data,error}=await sb.from("licenses").select("*").eq("username",u).eq("pass_hash",h).limit(1);
     if(error) throw error;
-    if(!data||!data.length){ SFX.wrong(); err("Sai tên đăng nhập hoặc mật khẩu!"); return; }
+    if((!data||!data.length)&&!u.includes("@")){
+      const r2=await sb.from("licenses").select("*").eq("username",u+"@gmail.com").eq("pass_hash",h).limit(1);
+      if(r2.error) throw r2.error;
+      data=r2.data;
+    }
+    if(!data||!data.length){ SFX.wrong(); err("Sai tên đăng nhập hoặc mật khẩu!<br><span class=\"note\">Thầy nhập đúng Gmail đã đăng ký (đầy đủ dạng ten@gmail.com) nhé!</span>"); return; }
     const acc=data[0];
     if(acc.expires_at&&new Date(acc.expires_at)<new Date()){
       SFX.wrong(); err(`Tài khoản đã <b>hết hạn</b>.<br>Liên hệ thầy Nhật Phong để gia hạn / nâng cấp bản thương mại nhé!<br><a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook</a> • <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a>`);
