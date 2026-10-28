@@ -243,7 +243,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="login-fix-20261028";
+const BUILD_ID="ai-bloom-20261028";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -764,7 +764,7 @@ function showRegisterForm(){
   const body=document.getElementById("tBody"); if(!body) return;
   body.innerHTML=`<div class="loginbox">
     <h3>📝 Đăng ký tài khoản mới</h3>
-    <p class="sub">Đăng ký miễn phí — <b>dùng thử 7 ngày</b> full tính năng.<br>Tên đăng nhập của thầy sẽ là <b>Gmail</b> thầy nhập.</p>
+    <p class="sub">Đăng ký miễn phí — <b>dùng thử 7 ngày</b> full tính năng.<br>Tên đăng nhập của thầy sẽ là <b>Gmail</b> thầy nhập. Chỉ hỗ trợ địa chỉ <b>@gmail.com</b>.</p>
     <input type="text" id="rgName" placeholder="Họ và tên..." autocomplete="name">
     <input type="email" id="rgGmail" placeholder="Gmail..." autocomplete="email">
     <input type="password" id="rgPass" placeholder="Mật khẩu (ít nhất 6 ký tự)..." autocomplete="new-password" onkeydown="if(event.key==='Enter')tRegister()">
@@ -783,6 +783,7 @@ async function tRegister(){
   const err=m=>{ errBox.innerHTML=`<div class="cfgwarn">⚠️ ${m}</div>`; };
   if(!name){ err("Thầy nhập họ tên nhé!"); return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmail)){ err("Gmail chưa đúng định dạng — thầy kiểm tra lại nhé!"); return; }
+  if(!gmail.endsWith("@gmail.com")){ err("Hệ thống không hỗ trợ email này — chỉ đăng ký được bằng Gmail (@gmail.com)."); return; }
   if(p1.length<6){ err("Mật khẩu ít nhất 6 ký tự nhé!"); return; }
   if(p1!==p2){ err("Hai lần nhập mật khẩu chưa giống nhau!"); return; }
   try{
@@ -1076,7 +1077,7 @@ function tAITab(){
   document.getElementById("tBody").innerHTML=`
     <div style="text-align:left;max-width:640px;margin:0 auto">
       <div class="aimsg">🤖 <b>Trợ lý AI tạo câu hỏi.</b> Thầy nhập ý tưởng (ví dụ: <i>"an toàn khi dùng mạng xã hội, lớp 4, 5 câu"</i>),
-      AI sẽ sinh câu hỏi đủ 4 dạng (trắc nghiệm, đúng/sai, sắp xếp, điền từ) kèm giải thích. Thầy duyệt rồi lưu vào ngân hàng.<br><br>
+      AI sẽ sinh câu hỏi đủ 4 dạng (trắc nghiệm, đúng/sai, sắp xếp, điền từ) kèm giải thích, đủ 3 cấp độ Bloom (Nhận biết – Thông hiểu – Vận dụng), bám sát yêu cầu cần đạt theo Chương trình 2018 và Khung năng lực số, năng lực AI. Thầy duyệt rồi lưu vào ngân hàng.<br><br>
       🔑 Cần <b>Gemini API key miễn phí</b> — dán vào ô dưới, key chỉ lưu trên máy thầy.</div>
       <details class="aiguide"><summary>📖 Cách lấy Gemini API key miễn phí (làm 1 lần, khoảng 2 phút)</summary>
       <ol>
@@ -1110,6 +1111,9 @@ async function aiGenerate(){
   const prompt=`Bạn là trợ lý soạn câu hỏi trắc nghiệm cho giáo viên tiểu học Việt Nam.
 Dựa vào ý tưởng sau, hãy tạo đúng ${n} câu hỏi cho học sinh tiểu học (tiếng Việt đơn giản, mỗi câu có 1 đáp án đúng duy nhất).
 Ý tưởng: ${idea}
+Yêu cầu chất lượng (bắt buộc):
+- Đủ 3 cấp độ Bloom: Nhận biết, Thông hiểu, Vận dụng — chia đều 3 cấp độ cho ${n} câu (càng đều càng tốt), mỗi câu ghi rõ "level" là 1 trong 3 giá trị trên.
+- Bám sát yêu cầu cần đạt của môn theo Chương trình 2018 và Khung năng lực số, năng lực AI, phù hợp với chủ đề và khối lớp trong ý tưởng.
 Mỗi câu thuộc 1 trong 4 dạng (trộn đều các dạng cho sinh động):
 - "choice": trắc nghiệm 4 đáp án (đáp án nhiễu phải hợp lý, dễ nhầm).
 - "truefalse": câu đúng/sai (options luôn là ["Đúng","Sai"]).
@@ -1117,7 +1121,7 @@ Mỗi câu thuộc 1 trong 4 dạng (trộn đều các dạng cho sinh động)
 - "fillblank": điền từ — q chứa chỗ trống "...", options là 1-3 đáp án được chấp nhận (kể cả cách viết không dấu), correct luôn là 0.
 Với mỗi câu, đề xuất thêm "image_prompt" (tiếng Anh, ngắn gọn) để vẽ ảnh minh họa KHÔNG có chữ.
 Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải thích:
-{"questions":[{"type":"choice","q":"...","options":["...","...","...","..."],"correct":2,"explain":"...","image_prompt":"..."},{"type":"reorder","q":"Xếp đúng thứ tự...?","options":["Bước 1","Bước 2","Bước 3","Bước 4"],"correct":0,"explain":"...","image_prompt":"..."},{"type":"fillblank","q":"... là ...","options":["Đáp án","Dap an"],"correct":0,"explain":"...","image_prompt":"..."}]}`;
+{"questions":[{"type":"choice","level":"Nhận biết","q":"...","options":["...","...","...","..."],"correct":2,"explain":"...","image_prompt":"..."},{"type":"reorder","q":"Xếp đúng thứ tự...?","options":["Bước 1","Bước 2","Bước 3","Bước 4"],"correct":0,"explain":"...","image_prompt":"..."},{"type":"fillblank","q":"... là ...","options":["Đáp án","Dap an"],"correct":0,"explain":"...","image_prompt":"..."}]}`;
   try{
     let j=null, lastErr="";
     const maxTok=Math.min(8000, parseInt(n)*600);
@@ -1147,7 +1151,8 @@ Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải
       if(t==="truefalse") options=["Đúng","Sai"];
       else if(t==="fillblank") options=Array.isArray(x.options)?x.options.map(String).filter(o=>o.trim()):[];
       else options=Array.isArray(x.options)?x.options.map(String):[];
-      return {type:t, q:String(x.q||""), options,
+      const lv=String(x.level||"").trim();
+      return {type:t, level:lv==="Thông hiểu"?"Thông hiểu":lv==="Vận dụng"?"Vận dụng":"Nhận biết", q:String(x.q||""), options,
         correct:t==="choice"?Math.max(0,parseInt(x.correct)||0):0, explain:String(x.explain||""), image_url:"",
         image_prompt:String(x.image_prompt||""), keep:true};
     }).filter(x=>x.q&&x.options.length>0&&(x.type==="fillblank"||x.type==="truefalse"||(x.options.length===4&&x.options.every(o=>o.trim()))));
@@ -1159,7 +1164,7 @@ Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải
 function aiPreview(){
   const out=document.getElementById("gOut");
   const rows=aiResult.map((q,i)=>`<label><input type="checkbox" ${q.keep?"checked":""} onchange="aiResult[${i}].keep=this.checked" style="width:20px;height:20px">
-    ${typeTag(q)} <b>Câu ${i+1}:</b> ${esc(q.q)}<br>
+    ${typeTag(q)} <span class="tag">🧠 ${esc(q.level||"Nhận biết")}</span> <b>Câu ${i+1}:</b> ${esc(q.q)}<br>
     <span class="note">${q.options.map((o,j)=>`${j===q.correct?"✅":"▫️"} ${esc(o)}`).join(" &nbsp; ")}</span>
     ${q.image_prompt?`<span class="imgprompt">🎨 Gợi ý ảnh: ${esc(q.image_prompt)} <br>→ Gửi prompt này vào chat với trợ lý để vẽ ảnh minh họa.</span>`:""}
   </label>`).join("");
