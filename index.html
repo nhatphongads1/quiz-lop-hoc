@@ -243,7 +243,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="dangky-20261028";
+const BUILD_ID="login-gate-20261028";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
 async function checkFresh(){
@@ -396,7 +396,7 @@ function pickMode(m){
   const eo=document.getElementById("examOpts"); if(eo) eo.style.display=(m==="exam")?"":"none";
   const bo=document.getElementById("bossRow"); if(bo) bo.style.display=(m==="exam")?"none":"";
   SFX.click(); }
-function canAuto(){ const s=sess(); return !!s&&(s.plan==="paid"||s.plan==="owner"); } // trả phí + admin mới dùng được
+function canAuto(){ const s=sess(); return !!s; } // đã đăng nhập (trial/paid/admin) là dùng được — hết hạn vốn đã không đăng nhập được
 const PLANS=[
   {id:"30d", days:30, name:"30 ngày", price:50000, priceText:"50.000đ", perDay:"~1.667đ/ngày", tag:""},
   {id:"60d", days:60, name:"60 ngày", price:75000, priceText:"75.000đ", perDay:"~1.250đ/ngày", tag:"Tiết kiệm 25%"},
@@ -424,6 +424,8 @@ function showUpgradeModal(feature){
       <img class="upqr" src="vietqr-phong.png" alt="QR chuyển khoản VietQR thầy Phong">
       <div class="upsteps" id="upSteps"></div>
     </div>
+    <p class="sub">💡 Chỉ cần <b>đăng nhập</b> là dùng được ngay — kể cả tài khoản <b>dùng thử 7 ngày miễn phí</b>.</p>
+    <button class="btn big" onclick="closeUpgrade();showTeacherLogin()">🔓 Đăng nhập / Đăng ký miễn phí</button>
     <button class="btn big green" onclick="closeUpgrade()">\u0110ã hiểu</button>
   </div>`;
   m.style.display="flex";
@@ -688,9 +690,10 @@ function showHome(){
 }
 
 /* ============ GIÁO VIÊN: ĐĂNG NHẬP & PHÂN QUYỀN ============
-   - Chưa đăng nhập: chỉ khóa 2 tab Ngân hàng & AI (tab Tạo phòng mở tự do)
-   - trial (7 ngày): được thêm TỪNG câu hỏi; KHÔNG được nhập hàng loạt & AI
-   - paid/owner: đầy đủ tính năng                                            */
+   - Chưa đăng nhập: màn hình đăng nhập/đăng ký riêng (showTeacherLogin)
+   - Đã đăng nhập (trial/paid/owner): mở khóa Tự động + Kiểm tra + Excel
+     (hết hạn vốn đã không đăng nhập được — ranh giới trial giữ ở cửa đăng nhập)
+   - Hộp đăng nhập trong tab Ngân hàng/AI (tTab) giữ làm dự phòng. */
 const ADMIN_USER="Admin", ADMIN_PASS="1960496Chi@";
 let pendingTab=null;
 function showTeacher(){
@@ -699,7 +702,26 @@ function showTeacher(){
     sessionStorage.setItem("tq_sess",JSON.stringify({u:"Admin",plan:"owner",exp:null}));
     sessionStorage.removeItem("tq_admin");
   }
+  if(!sess()){ showTeacherLogin(); return; }
   showTeacherMain();
+}
+/* Màn hình đăng nhập/đăng ký riêng cho giáo viên: hiện khi bấm nút Giáo viên
+   ở trang chủ mà chưa có phiên đăng nhập. */
+function showTeacherLogin(){
+  mode="teacher";
+  app.innerHTML=`<div class="card">
+    <h2>👨‍🏫 Giáo viên — Đăng nhập</h2>
+    <p class="sub">Đăng nhập để tạo phòng, dùng ngân hàng đề và AI.<br>Chưa có tài khoản? Đăng ký miễn phí — <b>dùng thử 7 ngày</b> full tính năng.</p>
+    <div class="loginbox" id="tBody">
+      <input type="text" id="adUser" placeholder="Tên đăng nhập (Gmail)..." autocomplete="username" onkeydown="if(event.key==='Enter')tLogin()">
+      <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
+      <div id="loginErr" style="margin:6px 0"></div>
+      <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
+      <br><button class="btn big" onclick="showRegisterForm()">📝 Đăng ký tài khoản mới</button>
+      <p class="note">Đăng ký miễn phí — dùng thử 7 ngày full tính năng.</p>
+    </div>
+    <button class="btn small" onclick="showHome()">← Về trang chủ</button>
+  </div>`;
 }
 async function tLogin(){
   const u=document.getElementById("adUser").value.trim();
@@ -740,7 +762,7 @@ function showRegisterForm(){
     <input type="password" id="rgPass2" placeholder="Nhập lại mật khẩu..." autocomplete="new-password" onkeydown="if(event.key==='Enter')tRegister()">
     <div id="rgErr" style="margin:6px 0"></div>
     <button class="btn big green" onclick="tRegister()">✅ Đăng ký & dùng thử 7 ngày</button>
-    <br><button class="btn small" onclick="tTab(pendingTab||'bank')">← Quay lại đăng nhập</button>
+    <br><button class="btn small" onclick="showTeacherLogin()">← Quay lại đăng nhập</button>
   </div>`;
 }
 async function tRegister(){
@@ -770,7 +792,7 @@ async function tRegister(){
     else err("Không đăng ký được: "+(e&&e.message?e.message:"lỗi mạng, thầy thử lại nhé!"));
   }
 }
-function tLogout(){ sessionStorage.removeItem("tq_sess"); pendingTab=null; SFX.click(); showTeacherMain(); }
+function tLogout(){ sessionStorage.removeItem("tq_sess"); pendingTab=null; SFX.click(); showTeacherLogin(); }
 function showTeacherMain(afterTab){
   mode="teacher";
   const s=sess();
@@ -795,9 +817,10 @@ async function tTab(which){
     pendingTab=which;
     const tn=which==="bank"?"📚 Ngân hàng câu hỏi":"🤖 AI tạo câu hỏi";
     document.getElementById("tBody").innerHTML=`<div class="loginbox">
-      <h3>🔒 ${tn} — Tính năng nâng cao</h3>
-      <p class="sub">Đây là tính năng của <b>bản thương mại</b>.<br>
-      Liên hệ thầy <b>Nhật Phong</b> để được cấp quyền sử dụng:<br>
+      <h3>🔒 ${tn} — Đăng nhập để dùng</h3>
+      <p class="sub">Đăng nhập tài khoản để dùng tính năng này — tài khoản <b>dùng thử miễn phí 7 ngày</b> cũng được.<br>
+      Chưa có tài khoản? Bấm <b>📝 Đăng ký tài khoản mới</b> bên dưới.<br>
+      Cần hỗ trợ, liên hệ thầy <b>Nhật Phong</b>:<br>
       <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook: Nhật Phong</a>
       &nbsp;•&nbsp;
       <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a></p>
@@ -1175,7 +1198,7 @@ async function tCreateRoom(){
     const {data}=await sb.from("rooms").select("id").eq("pin",pin).limit(1);
     if(!data||!data.length) break; }
   const theme=canAdventure()?roomTheme:"classic";
-  const mode=canAuto()?(roomMode||"live"):"live"; // trial/ẩn danh luôn chơi trực tiếp
+  const mode=canAuto()?(roomMode||"live"):"live"; // ẩn danh luôn chơi trực tiếp
   const examMin=mode==="exam"?parseInt(((document.getElementById("examMin")||{}).value||"30"),10):null;
   let res=await sb.from("rooms").insert({pin,phase:"lobby",current:0,question_set:s.questions,theme,mode,exam_minutes:examMin}).select().single();
   if(res.error&&/exam_minutes/i.test(res.error.message||"")){
