@@ -6,6 +6,7 @@
 <title>Trắc nghiệm trực tiếp — Lớp học vui (v2)</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root{ --bg1:#1a2a6c; --bg2:#b21f1f; --bg3:#fdbb2d; --card:#ffffff; --ink:#1f2d5a; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -681,6 +682,7 @@ function showHome(){
     <p class="sub">Chơi cùng cả lớp theo thời gian thực — kiểu Kahoot!</p>
     <button class="btn big green" onclick="SFX.click();showTeacher()">👨‍🏫 Giáo viên<br><small style="font-weight:400">Tạo phòng • Ngân hàng đề • AI</small></button>
     <button class="btn big orange" onclick="SFX.click();showStudentJoin()">🎒 Học sinh<br><small style="font-weight:400">Vào phòng bằng mã PIN</small></button>
+    <button class="btn big" onclick="SFX.click();showSelfPractice()">🏠 Tự luyện<br><small style="font-weight:400">Tự chọn đề • Luyện ở nhà</small></button>
     <p class="note">Thầy mở trang này trên máy chiếu • Trò mở cùng địa chỉ này trên máy mình</p>
     <div class="footer">👨‍💻 Phát triển bởi <b>thầy Nhật Phong</b><br>
       <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook: Nhật Phong</a>
@@ -1102,6 +1104,13 @@ function tAITab(){
       <label><b>Số câu:</b></label><br>
       <select id="gCount" style="max-width:160px"><option>3</option><option selected>5</option><option>10</option></select><br>
       <button class="btn big purple" id="gBtn" onclick="aiGenerate()">✨ Sinh câu hỏi</button>
+      <div style="margin:16px 0;padding:14px;border:3px dashed #b678f0;border-radius:16px;background:#faf5ff">
+        <b>📤 Tải file bài học lên</b><br>
+        <span class="note">AI <b>chỉ</b> sinh câu hỏi từ nội dung file thầy tải lên — 100% câu hỏi, đáp án đúng và đáp án nhiễu dựa vào file, <b>không</b> thêm kiến thức ngoài file.</span><br>
+        <input type="file" id="aiFile" accept=".txt,.md,.docx" onchange="aiFileRead(this)" style="margin:8px 0;max-width:100%">
+        <div id="aiFileInfo" class="note"></div>
+        <button class="btn purple" id="aiFileBtn" onclick="aiGenerateFromFile()" disabled>✨ AI sinh câu hỏi từ file</button>
+      </div>
       <div id="gOut" style="margin-top:12px"></div>
     </div>`;
 }
@@ -1200,6 +1209,105 @@ async function aiSave(){
   if(!String(sid).startsWith("fb")) await sb.from("question_bank").update({questions:s.questions}).eq("id",sid);
   SFX.fanfare(); fireworks(5);
   document.getElementById("gOut").innerHTML=`<div class="aimsg">✅ Đã lưu ${kept.length} câu vào bộ đề <b>${esc(s.set_name)}</b>!</div>`;
+}
+
+/* ============ AI SINH CÂU HỎI TỪ FILE BÀI HỌC (100% dựa vào file) ============ */
+let aiFileText="", aiFileName="";
+async function aiFileRead(input){
+  const f=input.files&&input.files[0];
+  const info=document.getElementById("aiFileInfo"), btn=document.getElementById("aiFileBtn");
+  aiFileText=""; aiFileName=""; if(btn) btn.disabled=true;
+  if(!f){ if(info) info.textContent=""; return; }
+  if(info) info.innerHTML=`<span class="spin"></span> Đang đọc file...`;
+  try{
+    const nm=f.name.toLowerCase();
+    let text="";
+    if(nm.endsWith(".docx")){
+      if(typeof mammoth==="undefined") throw new Error("Thư viện đọc .docx chưa tải được — thầy kiểm tra mạng rồi tải lại trang nhé!");
+      const buf=await f.arrayBuffer();
+      const res=await mammoth.extractRawText({arrayBuffer:buf});
+      text=res.value||"";
+    }else{ // .txt / .md
+      text=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("Đọc file thất bại.")); r.readAsText(f,"UTF-8"); });
+    }
+    text=String(text||"").replace(/\s+\n/g,"\n").trim();
+    if(text.length<20) throw new Error("File rỗng hoặc quá ít nội dung chữ (dưới 20 ký tự) — thầy kiểm tra lại file nhé!");
+    aiFileText=text; aiFileName=f.name;
+    if(info) info.innerHTML=`✅ Đã đọc <b>${esc(f.name)}</b> — ${text.length.toLocaleString("vi-VN")} ký tự. Bấm <b>"✨ AI sinh câu hỏi từ file"</b> để tạo câu hỏi.`;
+    if(btn) btn.disabled=false;
+    SFX.correct();
+  }catch(e){
+    if(info) info.innerHTML=`<div class="cfgwarn">⚠️ ${esc(e.message||"Không đọc được file.")}</div>`;
+  }
+}
+async function aiGenerateFromFile(){
+  const key=document.getElementById("gKey").value.trim();
+  const n=document.getElementById("gCount").value;
+  if(!key){ alert("Thầy dán Gemini API key vào trước nhé!"); return; }
+  if(!aiFileText){ alert("Thầy tải file bài học lên trước nhé!"); return; }
+  localStorage.setItem("gemini_key",key);
+  const out=document.getElementById("gOut"), fbtn=document.getElementById("aiFileBtn");
+  if(fbtn) fbtn.disabled=true;
+  out.innerHTML=`<p><span class="spin"></span> AI đang đọc file <b>${esc(aiFileName)}</b> và soạn ${n} câu hỏi...</p>`;
+  const excerpt=aiFileText.length>12000?aiFileText.slice(0,12000)+"\n[...nội dung còn dài, đã cắt bớt]":aiFileText;
+  const prompt=`Bạn là trợ lý soạn câu hỏi trắc nghiệm cho giáo viên tiểu học Việt Nam.
+Dưới đây là TOÀN BỘ nội dung bài học do giáo viên cung cấp (tên file: ${aiFileName}).
+NGUYÊN TẮC BẮT BUỘC: Bạn CHỈ được tạo câu hỏi từ nội dung này — 100% câu hỏi, đáp án đúng và đáp án nhiễu phải dựa vào file, TUYỆT ĐỐI KHÔNG thêm kiến thức ngoài file.
+Nếu nội dung file không đủ để tạo đủ ${n} câu, hãy tạo ÍT CÂU HƠN thay vì bịa thêm.
+
+--- NỘI DUNG FILE BẮT ĐẦU ---
+${excerpt}
+--- NỘI DUNG FILE KẾT THÚC ---
+
+Yêu cầu chất lượng (bắt buộc):
+- Đủ 3 cấp độ Bloom: Nhận biết, Thông hiểu, Vận dụng — chia đều 3 cấp độ cho số câu tạo ra (càng đều càng tốt), mỗi câu ghi rõ "level" là 1 trong 3 giá trị trên.
+- Tiếng Việt đơn giản cho học sinh tiểu học, mỗi câu có 1 đáp án đúng duy nhất.
+Mỗi câu thuộc 1 trong 4 dạng (trộn đều các dạng cho sinh động):
+- "choice": trắc nghiệm 4 đáp án (đáp án nhiễu phải hợp lý, dễ nhầm, lấy từ nội dung file).
+- "truefalse": câu đúng/sai (options luôn là ["Đúng","Sai"]).
+- "reorder": sắp xếp thứ tự — options là 4 mục theo ĐÚNG thứ tự (VD: các bước thực hiện, quy trình nêu trong file), correct luôn là 0.
+- "fillblank": điền từ — q chứa chỗ trống "...", options là 1-3 đáp án được chấp nhận (kể cả cách viết không dấu), correct luôn là 0.
+Với mỗi câu, đề xuất thêm "image_prompt" (tiếng Anh, ngắn gọn) để vẽ ảnh minh họa KHÔNG có chữ.
+Trả về DUY NHẤT một JSON hợp lệ, không thêm lời dẫn hay giải thích:
+{"questions":[{"type":"choice","level":"Nhận biết","q":"...","options":["...","...","...","..."],"correct":2,"explain":"...","image_prompt":"..."},{"type":"reorder","q":"Xếp đúng thứ tự...?","options":["Bước 1","Bước 2","Bước 3","Bước 4"],"correct":0,"explain":"...","image_prompt":"..."},{"type":"fillblank","q":"... là ...","options":["Đáp án","Dap an"],"correct":0,"explain":"...","image_prompt":"..."}]}`;
+  try{
+    let j=null, lastErr="";
+    const maxTok=Math.min(8000, parseInt(n)*600);
+    for(let mi=0; mi<GEMINI_MODELS.length; mi++){
+      const model=GEMINI_MODELS[mi];
+      out.innerHTML=`<p><span class="spin"></span> AI đang soạn câu hỏi từ file...<br><span class="note">(đang kết nối máy chủ ${mi+1}/${GEMINI_MODELS.length})</span></p>`;
+      try{
+        const ctl=new AbortController();
+        const tmr=setTimeout(()=>ctl.abort(), 25000);
+        const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+          {method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,
+           body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.5,maxOutputTokens:maxTok}})});
+        clearTimeout(tmr);
+        const jj=await r.json();
+        if(!r.ok) throw new Error(jj.error&&jj.error.message?jj.error.message:("Lỗi "+r.status));
+        j=jj; break;
+      }catch(e){ lastErr=(e.name==="AbortError")?"Máy chủ AI phản hồi quá chậm":e.message; }
+    }
+    if(!j) throw new Error(lastErr||"AI đang bận, thầy thử lại sau ít phút nhé!");
+    let txt=j.candidates[0].content.parts.map(p=>p.text||"").join("");
+    txt=txt.replace(/```json|```/g,"").trim();
+    const data=JSON.parse(txt);
+    const TYPES=["choice","truefalse","reorder","fillblank"];
+    aiResult=(data.questions||[]).map(x=>{
+      const t=TYPES.includes(x.type)?x.type:"choice";
+      let options;
+      if(t==="truefalse") options=["Đúng","Sai"];
+      else if(t==="fillblank") options=Array.isArray(x.options)?x.options.map(String).filter(o=>o.trim()):[];
+      else options=Array.isArray(x.options)?x.options.map(String):[];
+      const lv=String(x.level||"").trim();
+      return {type:t, level:lv==="Thông hiểu"?"Thông hiểu":lv==="Vận dụng"?"Vận dụng":"Nhận biết", q:String(x.q||""), options,
+        correct:t==="choice"?Math.max(0,parseInt(x.correct)||0):0, explain:String(x.explain||""), image_url:"",
+        image_prompt:String(x.image_prompt||""), keep:true};
+    }).filter(x=>x.q&&x.options.length>0&&(x.type==="fillblank"||x.type==="truefalse"||(x.options.length===4&&x.options.every(o=>o.trim()))));
+    if(!aiResult.length) throw new Error("AI không trả về câu hỏi nào từ file này — thầy thử file khác hoặc giảm số câu nhé!");
+    SFX.correct(); aiPreview();
+  }catch(e){ out.innerHTML=`<div class="cfgwarn">⚠️ ${esc(e.message)}<br><span class="note">Kiểm tra lại API key và mạng rồi thử lại nhé thầy.</span></div>`; }
+  if(fbtn) fbtn.disabled=false;
 }
 </script>
 
@@ -1961,7 +2069,7 @@ function sDoSpin(){
     drawWheel(cv,ang+(final-ang)*e);
     if(t-lastTick>240){ lastTick=t; SFX.tick(); }
     if(p<1) requestAnimationFrame(frame);
-    else{ cv.dataset.ang=String(final%(Math.PI*2)); sSpinDone(SPIN_SEGS[seg]); }
+    else{ cv.dataset.ang=String(final%(Math.PI*2)); (spActive?spSpinDone:sSpinDone)(SPIN_SEGS[seg]); }
   })(t0);
 }
 async function sSpinDone(prize){
@@ -1999,7 +2107,7 @@ function spinPanelHtml(correctCount){
 let reoDrag=null, reoDragOi=null; // kéo-thả câu sắp xếp
 let sAutoQCur=null; // cau HS dang lam o che do Tu dong (room.current khong doi o che do nay nen qNow() sai cau)
 function sRenderReorder(){
-  const q=(sReoExam&&sExamMode())?sExamQ:(sBossActive?sBossQCur:(sAutoMode()?sAutoQCur:qNow())); if(!q) return;
+  const q=spActive?spQCur:((sReoExam&&sExamMode())?sExamQ:(sBossActive?sBossQCur:(sAutoMode()?sAutoQCur:qNow()))); if(!q) return;
   const box=document.getElementById("sopts"); if(!box) return;
   box.innerHTML=sOrder.map((oi,r)=>`
     <div class="sreorow" data-r="${r}" draggable="true">
@@ -2644,6 +2752,159 @@ async function sExamPodium(){
     <table class="score"><tr><th>#</th><th style="text-align:left">Câu hỏi</th><th>KQ</th></tr>${review||'<tr><td colspan="3" class="note">Chưa có câu trả lời.</td></tr>'}</table>
   </div>`;
   if(rank<=3){ SFX.victory(); fireworks(6); } else SFX.fanfare();
+}
+
+/* ================= 🏠 TỰ LUYỆN Ở NHÀ =================
+   HS tự chọn bộ đề, làm từng câu, biết đúng/sai ngay.
+   Không cần GV, không cần đăng nhập, không lưu kết quả lên server. */
+let spName="", spSetId=null, spSetName="", spQs=[], spIdx=0, spCorrect=0, spScore=0, spStreak=0, spBonus=0;
+let spActive=false, spQCur=null; // spActive=true: sRenderReorder() và sDoSpin() dùng luồng tự luyện
+const SP_PTS={choice:10,truefalse:10,reorder:20,fillblank:15}; // điểm mỗi câu đúng
+function showSelfPractice(){
+  mode="selfpractice"; spActive=false; LobbyMusic.stop();
+  app.innerHTML=`<div class="card">
+    <h2>🏠 Tự luyện ở nhà</h2>
+    <p class="sub">Tự chọn bộ đề mình thích, làm từng câu, biết đúng/sai ngay.<br>Đúng <b>3 câu liên tiếp</b> được quay <b>🎡 vòng quay may mắn</b>!</p>
+    <input type="text" id="spNameIn" placeholder="Tên của em (không bắt buộc)..." maxlength="30" style="font-size:1.2rem;text-align:center">
+    <br><button class="btn big green" onclick="SFX.click();spListSets()">Tiếp tục →</button>
+    <br><button class="btn small" onclick="showHome()">← Về trang chủ</button>
+  </div>`;
+  const inp=document.getElementById("spNameIn");
+  if(inp) inp.addEventListener("keydown",e=>{ if(e.key==="Enter") spListSets(); });
+}
+function spListSets(){
+  const inp=document.getElementById("spNameIn");
+  spName=inp?(inp.value||"").trim():"";
+  app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề để luyện</h2><p><span class="spin"></span> Đang tải danh sách đề...</p></div>`;
+  loadBank().then(()=>{
+    const sets=bank.filter(s=>s.questions&&s.questions.length);
+    if(!sets.length){
+      app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề</h2><p class="note">Chưa có bộ đề nào. Nhờ thầy tạo đề trong ngân hàng nhé!</p>
+        <button class="btn small" onclick="showSelfPractice()">← Quay lại</button></div>`; return;
+    }
+    app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề để luyện</h2>
+      ${spName?`<p class="sub">Chào <b>${esc(spName)}</b>! 👋</p>`:""}
+      <div style="text-align:left;max-width:560px;margin:0 auto">${sets.map(s=>`
+        <div class="bankitem"><div><b>${esc(s.set_name)}</b><br><span class="note">${s.questions.length} câu hỏi</span></div>
+        <div><button class="btn small green" onclick="SFX.click();spStart('${s.id}')">▶️ Luyện đề này</button></div></div>`).join("")}</div>
+      <button class="btn small" onclick="showSelfPractice()">← Quay lại</button></div>`;
+  });
+}
+function spStart(setId){
+  const s=bank.find(x=>String(x.id)===String(setId)); if(!s||!s.questions.length) return;
+  spSetId=s.id; spSetName=s.set_name;
+  spQs=[...s.questions];
+  for(let i=spQs.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=spQs[i]; spQs[i]=spQs[j]; spQs[j]=t; } // đảo thứ tự câu
+  spIdx=0; spCorrect=0; spScore=0; spStreak=0; spBonus=0; spActive=true;
+  SFX.join(); spShowQ();
+}
+function spShowQ(){
+  const q=spQs[spIdx]; if(!q){ spResult(); return; }
+  spQCur=q; myAnswer=null;
+  const letters=["A","B","C","D"];
+  let body="";
+  if(q.type==="reorder"){
+    const order=[...Array(q.options.length).keys()];
+    for(let i=order.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=order[i]; order[i]=order[j]; order[j]=t; }
+    sOrd=[...order]; sOrder=[...order];
+    body=`<div class="note">🔢 Dùng nút <b>▲ ▼</b> để xếp các đáp án theo <b>đúng thứ tự</b> từ 1 đến ${q.options.length}</div>
+      <div class="opts" id="sopts"></div>
+      <button class="btn small" onclick="sResetOrder()">↩️ Xếp lại từ đầu</button>
+      <button class="btn big green" onclick="spSubmitOrder()">✅ Xong</button>`;
+  }else if(q.type==="fillblank"){
+    body=`<div class="note">✏️ Điền từ còn thiếu rồi bấm Trả lời</div>
+      <input type="text" id="blankIn" placeholder="Em điền đáp án..." autocomplete="off" style="font-size:1.3rem;text-align:center">
+      <br><button class="btn big green" onclick="spSubmitBlank()">✅ Trả lời</button>`;
+  }else{
+    const lbl=q.type==="truefalse"?"Đúng hay sai?":"Chọn đáp án đúng nhất";
+    body=`<div class="note">${q.type==="truefalse"?"✔️❌":"🎯"} <b>${lbl}</b></div>
+      <div class="opts" id="sopts">${q.options.map((o,d)=>`<div class="opt" onclick="spAnswerChoice(${d})">${letters[d]||"•"}. ${esc(o)}</div>`).join("")}</div>`;
+  }
+  app.innerHTML=`<div class="card">
+    <div class="note">🏠 Tự luyện • Câu ${spIdx+1}/${spQs.length} ${typeTag(q)} • Điểm: <b>${spScore}</b>${spStreak>=2?` • 🔥 Streak x${spStreak}`:""}</div>
+    <div class="qtext">${esc(q.q)}</div>${qImg(q)}
+    ${body}
+    <br><button class="btn small" onclick="spQuit()">🏠 Dừng luyện</button>
+  </div>`;
+  if(q.type==="reorder") sRenderReorder();
+  if(q.type==="fillblank"){ const el=document.getElementById("blankIn"); if(el) el.addEventListener("keydown",e=>{ if(e.key==="Enter") spSubmitBlank(); }); }
+}
+function spAnswerChoice(d){
+  if(myAnswer!==null||!spActive) return;
+  const q=spQCur; myAnswer={t:"sp-choice",pick:d}; SFX.click();
+  document.querySelectorAll("#sopts .opt").forEach((el,j)=>{ el.classList.toggle("picked",j===d); el.style.pointerEvents="none"; });
+  const ok=d===q.correct;
+  setTimeout(()=>spFeedback(ok, `Đáp án đúng: <b>${esc(q.options[q.correct])}</b>`, ok?SP_PTS[q.type]||10:0), 400);
+}
+function spSubmitOrder(){
+  if(myAnswer!==null||!spActive) return;
+  const q=spQCur; let cc=0;
+  sOrder.forEach((oi,pos)=>{ if(oi===pos) cc++; });
+  const ok=cc===q.options.length;
+  myAnswer={t:"sp-reorder",cc};
+  spFeedback(ok, `Thứ tự đúng:<br><b>${q.options.map((o,i)=>`${i+1}. ${esc(o)}`).join("<br>")}</b>`+
+    (ok?"":`<br><span class="note">Em đúng ${cc}/${q.options.length} vị trí — cố lên! 💪</span>`), ok?SP_PTS.reorder:0);
+}
+function spSubmitBlank(){
+  if(myAnswer!==null||!spActive) return;
+  const q=spQCur, el=document.getElementById("blankIn"), val=el?el.value:"";
+  if(!val.trim()){ alert("Em điền đáp án đã nhé!"); return; }
+  const ok=blankCorrect(q,val);
+  myAnswer={t:"sp-blank",ok};
+  spFeedback(ok, `Đáp án đúng: <b>${esc(q.options[0])}</b>`, ok?SP_PTS.fillblank:0);
+}
+function spFeedback(ok, rightHtml, pts){
+  const q=spQCur;
+  if(ok){ spCorrect++; spStreak++; spScore+=pts; SFX.correct(); boom(innerWidth/2,innerHeight/3,50); }
+  else { spStreak=0; SFX.wrong(); }
+  const needSpin=ok&&spStreak%SPIN_EVERY===0; // cứ 3 câu đúng liên tiếp → 1 lượt quay
+  app.innerHTML=`<div class="card">
+    <h2>${ok?"🎉 Đúng rồi!":"😅 Chưa đúng"}</h2>
+    ${ok&&pts?`<p class="sub">+${pts} điểm</p>`:""}
+    <div class="qtext" style="font-size:1.25rem">${rightHtml}</div>
+    ${qImg(q)}
+    ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
+    ${needSpin?spSpinPanelHtml():`<button class="btn big green" onclick="spNext()">Câu tiếp theo →</button>`}
+    <p class="sub">Điểm của em: <b>${spScore}</b> • Đúng <b>${spCorrect}/${spIdx+1}</b> • 🔥 Streak: <b>${spStreak}</b></p>
+  </div>`;
+  if(needSpin){ const wcv=document.getElementById("wheelCv"); if(wcv) drawWheel(wcv,0); }
+}
+function spSpinPanelHtml(){
+  return `<div class="spinpanel" id="spinPanel">
+    <h3>🎡 VÒNG QUAY MAY MẮN!</h3>
+    <p class="sub">Em đã đúng <b>${spStreak}</b> câu liên tiếp — bấm <b>QUAY</b> để nhận điểm thưởng!</p>
+    <div class="wheelwrap">
+      <canvas id="wheelCv" width="280" height="280" data-ang="0"></canvas>
+      <button class="wheelcenter" id="spinBtn" onclick="sDoSpin()">QUAY</button>
+    </div>
+    <br><button class="btn small" onclick="spNext()">⏭️ Để sau</button>
+  </div>`;
+}
+function spSpinDone(prize){
+  spinBusy=false;
+  spBonus+=prize; spScore+=prize;
+  SFX.fanfare(); boom(innerWidth/2,innerHeight/3,60);
+  const panel=document.getElementById("spinPanel");
+  if(panel) panel.innerHTML=`<div class="spinwin">🎉 Chúc mừng!<br><span>+${prize} điểm</span></div>
+    <p class="sub">Tổng điểm của em: <b>${spScore}</b></p>
+    <button class="btn big green" onclick="spNext()">Câu tiếp theo →</button>`;
+}
+function spNext(){ spIdx++; if(spIdx>=spQs.length) spResult(); else spShowQ(); }
+function spQuit(){ if(confirm("Dừng luyện và về trang chủ?")){ spActive=false; spQCur=null; showHome(); } }
+function spResult(){
+  spActive=false; spQCur=null;
+  const total=spQs.length, pct=total?Math.round(spCorrect/total*100):0;
+  const medal=pct>=80?"🏆":pct>=50?"🎖️":"💪";
+  app.innerHTML=`<div class="card"><div style="font-size:4rem">${medal}</div>
+    <h2>${spName?esc(spName):"Bạn"} — Hoàn thành! 🎉</h2>
+    <p class="sub">📚 Bộ đề: <b>${esc(spSetName)}</b></p>
+    <p style="font-size:1.3rem">Đúng <b>${spCorrect}/${total}</b> câu (${pct}%)</p>
+    <p style="font-size:1.3rem">Tổng điểm: <b>${spScore}</b> <span class="note">(gồm +${spBonus} điểm vòng quay)</span></p>
+    <button class="btn big green" onclick="spStart(spSetId)">🔄 Làm lại đề này</button>
+    <button class="btn big" onclick="showSelfPractice()">📚 Chọn đề khác</button>
+    <br><button class="btn small" onclick="showHome()">← Về trang chủ</button>
+  </div>`;
+  if(pct>=80) SFX.victory(); else if(pct>=50) SFX.fanfare(); else SFX.correct();
 }
 
 /* ================= KHỞI ĐỘNG ================= */
