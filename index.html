@@ -2757,24 +2757,63 @@ async function sExamPodium(){
 /* ================= 🏠 TỰ LUYỆN Ở NHÀ =================
    HS tự chọn bộ đề, làm từng câu, biết đúng/sai ngay.
    Không cần GV, không cần đăng nhập, không lưu kết quả lên server. */
-let spName="", spSetId=null, spSetName="", spQs=[], spIdx=0, spCorrect=0, spScore=0, spStreak=0, spBonus=0;
+let spName="", spClass="", spSetId=null, spSetName="", spQs=[], spIdx=0, spCorrect=0, spScore=0, spStreak=0, spBonus=0;
 let spActive=false, spQCur=null; // spActive=true: sRenderReorder() và sDoSpin() dùng luồng tự luyện
 const SP_PTS={choice:10,truefalse:10,reorder:20,fillblank:15}; // điểm mỗi câu đúng
+/* ============ 🏠 TỰ LUYỆN Ở NHÀ — kiểm duyệt tên HS ============
+   Tên phải là tên thật tiếng Việt (có dấu hoặc không dấu), ít nhất 2 từ
+   (Họ + Tên), chỉ gồm chữ cái tiếng Việt và khoảng trắng, không nickname,
+   không từ thô tục. */
+const SP_BAD_WORDS=("dit lon cac buoi dai deo vai cho ngu dan dot khung dien cut ia dai " +
+  "dcm vcl vl dm cc shit fuck bitch ngu nhu bo oc cho dau boi mat day mat net vo hoc " +
+  "thang dien con dien khung khung dien dien khung").split(" ");
+function spNorm(s){ return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f\u0111]/g,"").replace(/đ/g,"d"); }
+function spValidateName(raw){
+  const name=(raw||"").replace(/\s+/g," ").trim();
+  if(!name) return "Em nhập tên của mình nhé!";
+  if(name.length<4) return "Tên quá ngắn — em ghi đầy đủ họ tên nhé!";
+  if(name.length>50) return "Tên quá dài (tối đa 50 ký tự)!";
+  if(!/^[A-Za-zÀ-ỹà-ỹĐđ ]+$/.test(name)) return "Tên chỉ gồm chữ cái tiếng Việt và khoảng trắng — không dùng số, ký tự đặc biệt hay nickname nhé!";
+  const words=name.split(" ").filter(Boolean);
+  if(words.length<2) return "Em ghi đầy đủ họ và tên (ít nhất 2 từ), không dùng nickname 1 từ nhé!";
+  if(words.length>5) return "Tên dài quá — em ghi gọn lại nhé!";
+  if(words.some(w=>w.length>14)) return "Có từ quá dài — em kiểm tra lại tên nhé!";
+  const norm=" "+spNorm(name)+" ";
+  for(const b of SP_BAD_WORDS){ if(norm.includes(" "+b+" ")||norm.includes(b)) return "Tên không phù hợp — em ghi tên thật của mình nhé!"; }
+  // chặn lặp ký tự kiểu "aaaa", "hehehe"
+  if(/(.)\1{3,}/.test(spNorm(name).replace(/ /g,""))) return "Tên không phù hợp — em ghi tên thật của mình nhé!";
+  return "";
+}
 function showSelfPractice(){
   mode="selfpractice"; spActive=false; LobbyMusic.stop();
+  const gradeOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(g=>`<option value="${g}">Khối ${g}</option>`).join("");
+  const numOpts=Array.from({length:15},(_,i)=>`<option value="${i+1}">Lớp ${i+1}</option>`).join("");
   app.innerHTML=`<div class="card">
     <h2>🏠 Tự luyện ở nhà</h2>
     <p class="sub">Tự chọn bộ đề mình thích, làm từng câu, biết đúng/sai ngay.<br>Đúng <b>3 câu liên tiếp</b> được quay <b>🎡 vòng quay may mắn</b>!</p>
-    <input type="text" id="spNameIn" placeholder="Tên của em (không bắt buộc)..." maxlength="30" style="font-size:1.2rem;text-align:center">
+    <input type="text" id="spNameIn" placeholder="Họ và tên của em..." maxlength="50" style="font-size:1.2rem;text-align:center">
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+      <select id="spGrade" style="max-width:200px"><option value="">— Chọn khối —</option>${gradeOpts}</select>
+      <select id="spClassNum" style="max-width:200px"><option value="">— Chọn lớp —</option>${numOpts}</select>
+    </div>
+    <p id="spErr" style="display:none;background:#ffe1e1;border:3px solid #d63c3c;color:#8f1d1d;font-weight:800;border-radius:14px;padding:12px 14px;max-width:420px;margin:10px auto"></p>
     <br><button class="btn big green" onclick="SFX.click();spListSets()">Tiếp tục →</button>
     <br><button class="btn small" onclick="showHome()">← Về trang chủ</button>
+    <p class="note">✍️ Ghi <b>tên thật</b> của em (có dấu hoặc không dấu đều được) và <b>chọn đúng khối, lớp</b> — không dùng nickname nhé!</p>
   </div>`;
   const inp=document.getElementById("spNameIn");
   if(inp) inp.addEventListener("keydown",e=>{ if(e.key==="Enter") spListSets(); });
 }
+function spErr(msg){ const e=document.getElementById("spErr"); if(e){ e.textContent="⚠️ "+msg; e.style.display="block"; } else alert(msg); }
 function spListSets(){
   const inp=document.getElementById("spNameIn");
-  spName=inp?(inp.value||"").trim():"";
+  const rawName=inp?(inp.value||""):"";
+  const vErr=spValidateName(rawName);
+  if(vErr){ spErr(vErr); return; }
+  spName=rawName.replace(/\s+/g," ").trim();
+  const grade=document.getElementById("spGrade").value, cnum=document.getElementById("spClassNum").value;
+  if(!grade||!cnum){ spErr("Em chọn KHỐI và LỚP của mình nhé!"); return; }
+  spClass=grade+"/"+cnum;
   app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề để luyện</h2><p><span class="spin"></span> Đang tải danh sách đề...</p></div>`;
   loadBank().then(()=>{
     const sets=bank.filter(s=>s.questions&&s.questions.length);
@@ -2783,7 +2822,7 @@ function spListSets(){
         <button class="btn small" onclick="showSelfPractice()">← Quay lại</button></div>`; return;
     }
     app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề để luyện</h2>
-      ${spName?`<p class="sub">Chào <b>${esc(spName)}</b>! 👋</p>`:""}
+      ${spName?`<p class="sub">Chào <b>${esc(spName)}</b> <span class="pcls">${esc(spClass)}</span>! 👋</p>`:""}
       <div style="text-align:left;max-width:560px;margin:0 auto">${sets.map(s=>`
         <div class="bankitem"><div><b>${esc(s.set_name)}</b><br><span class="note">${s.questions.length} câu hỏi</span></div>
         <div><button class="btn small green" onclick="SFX.click();spStart('${s.id}')">▶️ Luyện đề này</button></div></div>`).join("")}</div>
@@ -2896,7 +2935,7 @@ function spResult(){
   const total=spQs.length, pct=total?Math.round(spCorrect/total*100):0;
   const medal=pct>=80?"🏆":pct>=50?"🎖️":"💪";
   app.innerHTML=`<div class="card"><div style="font-size:4rem">${medal}</div>
-    <h2>${spName?esc(spName):"Bạn"} — Hoàn thành! 🎉</h2>
+    <h2>${esc(spName)} <span class="pcls">${esc(spClass)}</span> — Hoàn thành! 🎉</h2>
     <p class="sub">📚 Bộ đề: <b>${esc(spSetName)}</b></p>
     <p style="font-size:1.3rem">Đúng <b>${spCorrect}/${total}</b> câu (${pct}%)</p>
     <p style="font-size:1.3rem">Tổng điểm: <b>${spScore}</b> <span class="note">(gồm +${spBonus} điểm vòng quay)</span></p>
