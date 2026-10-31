@@ -1906,18 +1906,13 @@ async function tExamResults(){
 let sCur=-1;
 function showStudentJoin(){
   sbInit(); mode="student"; unsubAll();
-  const gradeOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(g=>`<option value="${g}">Khối ${g}</option>`).join("");
-  const numOpts=Array.from({length:15},(_,i)=>`<option value="${i+1}">Lớp ${i+1}</option>`).join("");
   app.innerHTML=`<div class="card"><h2>🎒 Học sinh vào phòng</h2>
     <input type="text" id="jPin" inputmode="numeric" placeholder="Mã PIN..." maxlength="6">
     <input type="text" id="jName" placeholder="Tên của em..." maxlength="50">
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-      <select id="jGrade" style="max-width:200px"><option value="">— Chọn khối —</option>${gradeOpts}</select>
-      <select id="jClassNum" style="max-width:200px"><option value="">— Chọn lớp —</option>${numOpts}</select>
-    </div>
+    <input type="text" id="jClassIn" placeholder="Lớp của em (VD: 4/2)..." maxlength="10">
     <br><button class="btn big orange" onclick="sJoin()">🚀 Vào phòng</button>
     <p id="jErr" style="display:none;background:#ffe1e1;border:3px solid #d63c3c;color:#8f1d1d;font-weight:800;border-radius:14px;padding:12px 14px;max-width:420px;margin:10px auto"></p>
-    <p class="note">Hỏi thầy mã PIN đang hiện trên màn hình lớp nhé!<br>✍️ Ghi <b>tên của em</b> (ghi sao cũng được) và <b>chọn đúng khối, lớp</b> của em — vào muộn vẫn chơi được ở câu hiện tại.</p></div>`;
+    <p class="note">Hỏi thầy mã PIN đang hiện trên màn hình lớp nhé!<br>✍️ Ghi <b>tên của em</b> (ghi sao cũng được) và <b>lớp của em</b> (VD: 4/2) — vào muộn vẫn chơi được ở câu hiện tại.</p></div>`;
 }
 /* Huy hiệu lớp cạnh tên học sinh, ví dụ: An <span>4/3</span> */
 function pcls(p){ return p&&p.class_name?` <span class="pcls">${esc(p.class_name)}</span>`:""; }
@@ -1928,9 +1923,11 @@ async function sJoin(){
   // Tên HS nhập tự do: chỉ cần không rỗng, tối đa 50 ký tự, giữ nguyên như đã nhập
   const name=document.getElementById("jName").value.replace(/\s+/g," ").trim().slice(0,50);
   if(!name){ jErr("Em nhập tên nhé!"); return; }
-  const grade=document.getElementById("jGrade").value, cnum=document.getElementById("jClassNum").value;
-  if(!grade||!cnum){ jErr("Em chọn KHỐI và LỚP của mình nhé — chọn đúng lớp mới vào chơi được!"); return; }
-  const className=grade+"/"+cnum;
+  // Lớp HS ghi tay (VD: 4/2) — phải có số khối 1-12
+  const rawClass=(document.getElementById("jClassIn").value||"").trim().slice(0,10);
+  const mCls=rawClass.match(/(\d{1,2})/);
+  if(!mCls||parseInt(mCls[1],10)<1||parseInt(mCls[1],10)>12){ jErr("Em ghi LỚP của mình nhé (VD: 4/2)!"); return; }
+  const className=rawClass;
   SFX.click();
   const {data}=await sb.from("rooms").select("*").eq("pin",pin).order("created_at",{ascending:false}).limit(1);
   if(!data||!data.length){ jErr("Không tìm thấy phòng! Kiểm tra lại PIN nhé."); return; }
