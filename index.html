@@ -2757,34 +2757,45 @@ async function sExamPodium(){
 /* ================= 🏠 TỰ LUYỆN Ở NHÀ =================
    HS tự chọn bộ đề, làm từng câu, biết đúng/sai ngay.
    Không cần GV, không cần đăng nhập, không lưu kết quả lên server. */
-let spName="", spClass="", spSetId=null, spSetName="", spQs=[], spIdx=0, spCorrect=0, spScore=0, spStreak=0, spBonus=0;
+let spName="", spClass="", spGrade=0, spSetId=null, spSetName="", spQs=[], spIdx=0, spCorrect=0, spScore=0, spStreak=0, spBonus=0;
 let spActive=false, spQCur=null; // spActive=true: sRenderReorder() và sDoSpin() dùng luồng tự luyện
 const SP_PTS={choice:10,truefalse:10,reorder:20,fillblank:15}; // điểm mỗi câu đúng
 /* ============ 🏠 TỰ LUYỆN Ở NHÀ ============
-   Tên HS nhập tự do, tự động viết hoa chữ cái đầu mỗi từ. */
+   Tên HS nhập tự do, tự động viết hoa chữ cái đầu mỗi từ.
+   HS ghi lớp (VD: 5/4) → chỉ thấy bộ đề đúng khối của mình. */
 function spTitleCase(s){
   return s.replace(/\s+/g," ").trim().toLowerCase().split(" ").filter(Boolean)
     .map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
 }
+// Tách số khối (1-12) từ chuỗi lớp HS ghi, VD "5/4"→5, "lớp 5"→5, "5A"→5
+function spParseGrade(s){
+  const m=String(s||"").match(/(\d{1,2})/);
+  if(!m) return 0;
+  const g=parseInt(m[1],10);
+  return (g>=1&&g<=12)?g:0;
+}
+// Tách khối từ tên bộ đề, VD "Tin học 5 — ..."→5, "(Công nghệ 4)"→4; không thấy → 0 (hiện cho mọi khối)
+function spSetGrade(name){
+  const m=String(name||"").match(/(Tin học|Công nghệ|Tiếng Việt|Toán|KHTN|Khoa học|Lịch sử và Địa lý|Lịch sử|Địa lý|Đạo đức|Âm nhạc|Mỹ thuật|Tiếng Anh)\s*(\d{1,2})\b/i);
+  if(m){ const g=parseInt(m[2],10); if(g>=1&&g<=12) return g; }
+  return 0;
+}
 function showSelfPractice(){
   mode="selfpractice"; spActive=false; LobbyMusic.stop();
-  const gradeOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(g=>`<option value="${g}">Khối ${g}</option>`).join("");
-  const numOpts=Array.from({length:15},(_,i)=>`<option value="${i+1}">Lớp ${i+1}</option>`).join("");
   app.innerHTML=`<div class="card">
     <h2>🏠 Tự luyện ở nhà</h2>
     <p class="sub">Tự chọn bộ đề mình thích, làm từng câu, biết đúng/sai ngay.<br>Đúng <b>3 câu liên tiếp</b> được quay <b>🎡 vòng quay may mắn</b>!</p>
     <input type="text" id="spNameIn" placeholder="Họ và tên của em..." maxlength="50" style="font-size:1.2rem;text-align:center">
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px">
-      <select id="spGrade" style="max-width:200px"><option value="">— Chọn khối —</option>${gradeOpts}</select>
-      <select id="spClassNum" style="max-width:200px"><option value="">— Chọn lớp —</option>${numOpts}</select>
-    </div>
+    <input type="text" id="spClassIn" placeholder="Lớp của em (VD: 5/4)..." maxlength="10" style="font-size:1.2rem;text-align:center;margin-top:8px">
     <p id="spErr" style="display:none;background:#ffe1e1;border:3px solid #d63c3c;color:#8f1d1d;font-weight:800;border-radius:14px;padding:12px 14px;max-width:420px;margin:10px auto"></p>
     <br><button class="btn big green" onclick="SFX.click();spListSets()">Tiếp tục →</button>
     <br><button class="btn small" onclick="showHome()">← Về trang chủ</button>
-    <p class="note">✍️ Ghi <b>tên của em</b> (tên gì cũng được) và <b>chọn đúng khối, lớp</b> nhé!</p>
+    <p class="note">✍️ Ghi <b>tên của em</b> (tên gì cũng được) và <b>lớp của em</b> (VD: 5/4) — em sẽ chỉ thấy đề của khối mình nhé!</p>
   </div>`;
   const inp=document.getElementById("spNameIn");
   if(inp) inp.addEventListener("keydown",e=>{ if(e.key==="Enter") spListSets(); });
+  const cin=document.getElementById("spClassIn");
+  if(cin) cin.addEventListener("keydown",e=>{ if(e.key==="Enter") spListSets(); });
 }
 function spErr(msg){ const e=document.getElementById("spErr"); if(e){ e.textContent="⚠️ "+msg; e.style.display="block"; } else alert(msg); }
 function spListSets(){
@@ -2793,14 +2804,18 @@ function spListSets(){
   // Tên nhập tự do, tự động viết hoa chữ cái đầu mỗi từ
   spName=spTitleCase(rawName).slice(0,50);
   if(!spName){ spErr("Em nhập tên nhé!"); return; }
-  const grade=document.getElementById("spGrade").value, cnum=document.getElementById("spClassNum").value;
-  if(!grade||!cnum){ spErr("Em chọn KHỐI và LỚP của mình nhé!"); return; }
-  spClass=grade+"/"+cnum;
+  const cin=document.getElementById("spClassIn");
+  const rawClass=cin?(cin.value||""):"";
+  const grade=spParseGrade(rawClass);
+  if(!grade){ spErr("Em ghi LỚP của mình nhé (VD: 5/4)!"); return; }
+  spClass=rawClass.trim().slice(0,10); spGrade=grade;
   app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề để luyện</h2><p><span class="spin"></span> Đang tải danh sách đề...</p></div>`;
   loadBank().then(()=>{
-    const sets=bank.filter(s=>s.questions&&s.questions.length);
+    let sets=bank.filter(s=>s.questions&&s.questions.length);
+    // Chỉ hiện đề đúng khối của HS; đề không ghi khối trong tên thì hiện cho mọi khối
+    sets=sets.filter(s=>{ const g=spSetGrade(s.set_name); return g===0||g===grade; });
     if(!sets.length){
-      app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề</h2><p class="note">Chưa có bộ đề nào. Nhờ thầy tạo đề trong ngân hàng nhé!</p>
+      app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề</h2><p class="note">Chưa có bộ đề nào cho khối ${grade}. Nhờ thầy tạo đề trong ngân hàng nhé!</p>
         <button class="btn small" onclick="showSelfPractice()">← Quay lại</button></div>`; return;
     }
     app.innerHTML=`<div class="card"><h2>📚 Chọn bộ đề để luyện</h2>
