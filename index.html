@@ -1516,7 +1516,7 @@ async function tShowReveal(){
     ${stageMapHtml(idx,total)}
     ${stageDoneBanner(idx,total)}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
-    <h3>🏅 Bảng điểm</h3><div id="scoreWrap">${scoreTable()}</div>
+    <h3>🏅 Bảng điểm <button class="btn small" onclick="toggleScoreboard()" style="margin-left:8px">👁️ Ẩn/Hiện</button></h3><div id="scoreWrap" style="display:none">${scoreTable()}</div>
     <button class="btn big green" onclick="tNext()">${last?"🏁 Xem vinh danh":"Câu tiếp theo ➡"}</button>
   </div>`;
   // Theo dõi vòng quay may mắn của HS: điểm tăng trong lúc chốt = vừa quay trúng
@@ -1538,6 +1538,10 @@ function scoreTable(){
   const N=room?room.question_set.length:0;
   return `<table class="score">${s.map((p,i)=>{ const st=streakMap[p.id]||0;
     return `<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${st>=2?` <span class="streak">🔥x${st}</span>`:""}</td><td><b>${p.score}</b> đ</td><td>🪙 ${coinsFor(p.id,roomAnsAll,N,bossWon)}</td></tr>`; }).join("")}</table>`;
+}
+function toggleScoreboard(){
+  const w=document.getElementById("scoreWrap");
+  if(w) w.style.display=(w.style.display==="none"?"":"none");
 }
 async function tNext(){
   SFX.click(); lockedOnce=false;
@@ -1656,6 +1660,8 @@ function tBossTeacher(){
     .on("postgres_changes",{event:"INSERT",schema:"public",table:"answers",filter:"room_id=eq."+room.id},async()=>{
       const {count}=await sb.from("answers").select("id",{count:"exact",head:true}).eq("room_id",room.id).eq("q_index",BOSS_QBASE+bossIdx);
       const e=document.getElementById("acount"); if(e) e.textContent=count||0;
+      // Tự động chốt đòn ngay khi cả lớp đã trả lời xong — không chờ hết giờ
+      if(!bossLocked&&(count||0)>=players.length&&players.length>0){ tBossLock(); }
     }).subscribe();
 }
 async function tBossLock(){
