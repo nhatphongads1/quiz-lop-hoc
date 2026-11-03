@@ -1728,15 +1728,19 @@ async function tAutoDash(){
     const finCount=players.filter(p=>autoProgress(p.id).done>=total).length;
     const rows=players.map(p=>{
       const pr=autoProgress(p.id), fin=pr.done>=total;
-      return `<tr><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${fin?" ✅":""}</td><td>${pr.done}/${total}</td><td><b>${p.score}</b> đ</td></tr>`;
+      return `<tr><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${fin?" ✅":""}</td><td>${pr.done}/${total}</td><td><b>${(p.score/100).toFixed(1)}</b>/10</td></tr>`;
     }).join("");
     app.innerHTML=`<div class="card">
       <h2>🚀 Chế độ tự động — đang chơi</h2>
       <p class="sub">Học sinh tự làm theo nhịp riêng • <b>${finCount}/${players.length}</b> bạn đã xong</p>
-      <table class="score"><tr><th style="text-align:left">Học sinh</th><th>Tiến độ</th><th>Điểm</th></tr>
+      <table class="score"><tr><th style="text-align:left">Học sinh</th><th>Tiến độ</th><th>Điểm /10</th></tr>
       ${rows||'<tr><td colspan="3" class="note">Chưa có học sinh.</td></tr>'}</table>
       <button class="btn big red" onclick="tAutoEnd()">🏁 Kết thúc</button>
     </div>`;
+    // Tự động kết thúc khi cả lớp đã về đích
+    if(players.length>0&&finCount>=players.length&&room.phase==="question"){
+      setTimeout(()=>{ if(room.phase==="question") tAutoEndGo(); },3000);
+    }
   };
   render();
   channel2=sb.channel("tans-auto-"+room.id)
@@ -1760,7 +1764,7 @@ async function tAutoResults(){
   const N=room.question_set.length;
   const ansBy={}; autoAns.forEach(a=>{ (ansBy[a.player_id]=ansBy[a.player_id]||{})[a.q_index]=a; });
   const nCorrect=id=>{ const m=ansBy[id]||{}; let c=0; for(let i=0;i<N;i++) if(m[i]&&m[i].is_correct) c++; return c; };
-  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}${pcls(p)}</span><span class="sc">${p.score} đ</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
+  const step=(p,cls,md)=>p?`<div class="step ${cls}"><span class="medal">${md}</span><span class="nm">${esc(p.name)}${pcls(p)}</span><span class="sc">${(p.score/100).toFixed(1)}/10</span></div>`:`<div class="step ${cls}"><span class="medal">—</span></div>`;
   const bossBanner=bossPlayed?(bossWon?`<div class="stagebanner">🎉 Cả lớp đã đánh bại 👹 Trùm Virus! +30 Xu 🪙 mỗi bạn</div>`:`<div class="stagebanner">😄 Trùm Virus chạy trốn vì hết giờ! Lần sau cả lớp cố gắng hơn nhé 💪</div>`):"";
   app.innerHTML=`<div class="card">
     <h1>🏆 Vinh danh</h1>
@@ -1768,10 +1772,10 @@ async function tAutoResults(){
     ${stageMapHtml(N,N)}
     <div class="podium">${step(s[1],"s2","🥈")}${step(s[0],"s1","🥇")}${step(s[2],"s3","🥉")}</div>
     <h3>🔟 Top 10</h3>
-    <table class="score">${s.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}</td><td><b>${p.score}</b> đ</td><td>${nCorrect(p.id)}/${N} đúng</td><td>🪙 ${coinsFor(p.id,autoAns,N,bossWon)}</td></tr>`).join("")||'<tr><td colspan="5" class="note">Chưa có học sinh.</td></tr>'}</table>
+    <table class="score">${s.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}</td><td><b>${(p.score/100).toFixed(1)}</b>/10</td><td>${nCorrect(p.id)}/${N} đúng</td><td>🪙 ${coinsFor(p.id,autoAns,N,bossWon)}</td></tr>`).join("")||'<tr><td colspan="5" class="note">Chưa có học sinh.</td></tr>'}</table>
     <h3>📊 Thống kê cả lớp</h3>
     <table class="score"><tr><th>#</th><th style="text-align:left">Tên</th><th>Điểm</th><th>Đúng</th><th>Sai</th><th>Tỉ lệ</th><th>Xu</th></tr>
-    ${s.map((p,i)=>{ const c=nCorrect(p.id); return `<tr><td>${i+1}</td><td style="text-align:left">${esc(p.name)}${pcls(p)}</td><td><b>${p.score}</b></td><td>${c}</td><td>${N-c}</td><td>${N?Math.round(c/N*100):0}%</td><td>🪙 ${coinsFor(p.id,autoAns,N,bossWon)}</td></tr>`; }).join("")}</table>
+    ${s.map((p,i)=>{ const c=nCorrect(p.id); return `<tr><td>${i+1}</td><td style="text-align:left">${esc(p.name)}${pcls(p)}</td><td><b>${(p.score/100).toFixed(1)}</b></td><td>${c}</td><td>${N-c}</td><td>${N?Math.round(c/N*100):0}%</td><td>🪙 ${coinsFor(p.id,autoAns,N,bossWon)}</td></tr>`; }).join("")}</table>
     <button class="btn big green" onclick="tExportExcel()">📥 Xuất Excel</button><br>
     <button class="btn big" onclick="showTeacher()">🏠 Về trang giáo viên</button>
   </div>`;
@@ -1781,14 +1785,15 @@ async function tExportExcel(){
   SFX.click();
   const qs=room.question_set, N=qs.length, letters=["A","B","C","D"];
   const isExam=(room.mode||"live")==="exam"; // kiểm tra: điểm thang 10, đáp án mỗi bạn đảo khác nhau → xuất nội dung đáp án, không xuất chữ cái
+  const isAuto=(room.mode||"live")==="auto"; // tự động: điểm thang 10 (lưu x100)
   const ansBy={}; autoAns.forEach(a=>{ (ansBy[a.player_id]=ansBy[a.player_id]||{})[a.q_index]=a; });
   const corr=id=>{ const m=ansBy[id]||{}; let c=0; for(let qi=0;qi<N;qi++) if(m[qi]&&m[qi].is_correct) c++; return c; };
   const s=[...players].sort((a,b)=> isExam ? (corr(b.id)-corr(a.id)) : (b.score-a.score));
-  const head1=["STT","Họ tên","Lớp",isExam?"Điểm số /10":"Điểm số","Số câu đúng","Số câu sai","Tỉ lệ đúng (%)","Xếp hạng"];
+  const head1=["STT","Họ tên","Lớp",(isExam||isAuto)?"Điểm số /10":"Điểm số","Số câu đúng","Số câu sai","Tỉ lệ đúng (%)","Xếp hạng"];
   const rows1=s.map((p,i)=>{ const c=corr(p.id);
-    return [i+1,p.name,p.class_name||"",isExam?(c*10/N).toFixed(1):p.score,c,N-c,N?Math.round(c/N*100):0,i+1]; });
+    return [i+1,p.name,p.class_name||"",isExam?(c*10/N).toFixed(1):(isAuto?(p.score/100).toFixed(1):p.score),c,N-c,N?Math.round(c/N*100):0,i+1]; });
   const head2=["Họ tên","Lớp","Điểm số",...qs.map((q,qi)=>`Câu ${qi+1}`)];
-  const rows2=s.map(p=>{ const m=ansBy[p.id]||{}; const sc=isExam?(corr(p.id)*10/N).toFixed(1):p.score;
+  const rows2=s.map(p=>{ const m=ansBy[p.id]||{}; const sc=isExam?(corr(p.id)*10/N).toFixed(1):(isAuto?(p.score/100).toFixed(1):p.score);
     const cells=qs.map((q,qi)=>{ const a=m[qi]; if(!a) return "—";
       if(q.type==="reorder"){ const cc=a.option_index||0; return (a.is_correct?"✅ ":"⚠️ ")+cc+"/"+q.options.length+" vị trí"; }
       if(q.type==="fillblank") return a.is_correct?"✅ Đúng":"❌ Sai";
@@ -2407,13 +2412,13 @@ async function sBossSubmitBlank(){
 let sAutoIdx=0, sAutoStreak=0, sAutoCorrect=0, sAutoBusy=false, sAutoAdv=false, sAutoStarted=false, sAutoQStart=0;
 function sAutoMode(){ return (room&&(room.mode||"live"))==="auto"; }
 function autoPoints(q,cc,ok,ms,streak){
-  const bonus=Math.max(0,Math.round(50*(1-ms/(QUESTION_TIME*1000))));
-  const combo=comboBonus(streak);
+  // Thang điểm 10 cho chế độ Tự động: mỗi câu = 10/N điểm, lưu x100 (tối đa 1000 = 10.0)
+  const N=room.question_set.length||1, perQ=1000/N;
   if(q.type==="reorder"){
     const frac=Math.max(0,Math.min(1,(cc||0)/q.options.length));
-    return frac>0?Math.round(100*frac)+((cc===q.options.length)?bonus+combo:0):0;
+    return Math.round(perQ*frac);
   }
-  return ok?100+bonus+combo:0;
+  return ok?Math.round(perQ):0;
 }
 async function sAutoBeginSafe(){
   // Thiếu bộ đề (gói realtime bị cắt cột lớn) thì tải lại cả phòng từ máy chủ trước khi bắt đầu;
@@ -2506,7 +2511,7 @@ async function sAutoRecord(q,cc,ok,oi){
 }
 function sAutoFeedback(q,ok,pts){
   const N=room.question_set.length;
-  const comboHtml=sAutoStreak>=2?`<div class="combo">🔥 Combo x${sAutoStreak}! <span>+${comboBonus(sAutoStreak)} điểm thưởng</span></div>`:"";
+  const comboHtml=sAutoStreak>=2?`<div class="combo">🔥 Combo x${sAutoStreak}!</div>`:"";
   let rightHtml="";
   if(q.type==="reorder") rightHtml=`Thứ tự đúng:<br><b>${q.options.map((o,i)=>`${i+1}. ${esc(o)}`).join("<br>")}</b>`;
   else if(q.type==="fillblank") rightHtml=`Đáp án đúng: <b>${esc(q.options[0])}</b>`;
@@ -2521,7 +2526,7 @@ function sAutoFeedback(q,ok,pts){
     <div class="qtext" style="font-size:1.25rem">${rightHtml}</div>
     ${`<div class="jmine">🗺️ Em đang ở <b>Chặng ${stageOfIdx(sAutoIdx,N)+1}/3</b></div>${stageMapHtml(sAutoIdx,N)}`}
     ${q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:""}
-    <p class="sub">+${pts} điểm • Đúng ${sAutoCorrect}/${sAutoIdx+1} câu</p>
+    <p class="sub">+${(pts/100).toFixed(1)} điểm • Đúng ${sAutoCorrect}/${sAutoIdx+1} câu</p>
     ${canSpin?spinPanelHtml(sAutoCorrect):`<p class="note">Tự chuyển câu tiếp theo...</p><span class="spin"></span><br><button class="btn big green" onclick="sAutoNext()">Câu tiếp theo ▶</button>`}
   </div>`;
   const wcv=document.getElementById("wheelCv"); if(wcv) drawWheel(wcv,0);
@@ -2541,9 +2546,9 @@ async function sAutoDone(){
   let sc=0; try{ const {data}=await sb.from("players").select("score").eq("id",myPlayer.id).single(); sc=data?data.score:0; }catch(e){}
   const N=room.question_set.length;
   let myCoins=0; try{ const {data:ans}=await sb.from("answers").select("q_index,is_correct").eq("room_id",room.id).eq("player_id",myPlayer.id); myCoins=coinsFor(myPlayer.id,(ans||[]).map(a=>({player_id:myPlayer.id,q_index:a.q_index,is_correct:a.is_correct})),N,false); }catch(e){}
-  app.innerHTML=`<div class="card"><div style="font-size:4rem">🎉</div>
-    <h2>Em đã hoàn thành!</h2>
-    <p class="sub">Tổng điểm: <b>${sc}</b> • Đúng <b>${sAutoCorrect}/${N}</b> câu</p>
+  app.innerHTML=`<div class="card"><div style="font-size:4rem">🏁</div>
+    <h2>🎉 Chúc mừng bạn đã về đích!</h2>
+    <p class="sub">Tổng điểm: <b>${(sc/100).toFixed(1)}/10</b> • Đúng <b>${sAutoCorrect}/${N}</b> câu</p>
     <p><span class="coinchip">🪙 Xu Lá Chắn: ${myCoins}</span></p>
     <p class="note">Chờ thầy kết thúc để xem xếp hạng nhé...</p><span class="spin"></span></div>`;
   SFX.fanfare();
@@ -2570,11 +2575,11 @@ async function sAutoPodium(){
   }catch(e){}
   app.innerHTML=`<div class="card"><div style="font-size:4rem">${medal}</div>
     <h2>${esc(myPlayer.name)} — hạng ${rank}/${all.length}</h2>
-    <p class="sub">Tổng điểm: <b>${me?me.score:0}</b> • Đúng <b>${correct}/${N}</b> câu</p>
+    <p class="sub">Tổng điểm: <b>${me?(me.score/100).toFixed(1):"0.0"}/10</b> • Đúng <b>${correct}/${N}</b> câu</p>
     <p><span class="coinchip">🪙 Xu Lá Chắn: ${myCoins}</span></p>
     ${bossLine}
     <h3>🔟 Top 10</h3>
-    <table class="score">${all.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${p.id===myPlayer.id?" ⬅️":""}</td><td><b>${p.score}</b> đ</td></tr>`).join("")}</table>
+    <table class="score">${all.slice(0,10).map((p,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(p.name)}</b>${pcls(p)}${p.id===myPlayer.id?" ⬅️":""}</td><td><b>${(p.score/100).toFixed(1)}</b>/10</td></tr>`).join("")}</table>
   </div>`;
   if(rank<=3){ SFX.victory(); fireworks(6); } else SFX.fanfare();
 }
