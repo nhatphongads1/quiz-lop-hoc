@@ -244,7 +244,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="gmail-sheet-20261029";
+const BUILD_ID="email-verify-20261106";
 const SHEET_LOG_URL="https://script.google.com/macros/s/AKfycbzQEzXXgUk23oYVJxF28Bj6fYzrngn662NKhRWrjuxTvqooTtTZy7EZf6EPx5R54cZY/exec";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
@@ -426,7 +426,7 @@ function showUpgradeModal(feature){
       <img class="upqr" src="vietqr-phong.png" alt="QR chuyển khoản VietQR thầy Phong">
       <div class="upsteps" id="upSteps"></div>
     </div>
-    <p class="sub">💡 Chỉ cần <b>đăng nhập</b> là dùng được ngay — kể cả tài khoản <b>dùng thử 7 ngày miễn phí</b>.</p>
+    <p class="sub">💡 Chỉ cần <b>đăng nhập</b> là dùng được ngay — kể cả tài khoản <b>dùng thử 3 ngày miễn phí</b>.</p>
     <button class="btn big" onclick="closeUpgrade();showTeacherLogin()">🔓 Đăng nhập / Đăng ký miễn phí</button>
     <button class="btn big green" onclick="closeUpgrade()">\u0110ã hiểu</button>
   </div>`;
@@ -626,7 +626,7 @@ function journeyHtml(){
 }
 const app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-/* ---- Phiên đăng nhập & phân quyền (trial 7 ngày / paid / owner) ---- */
+/* ---- Phiên đăng nhập & phân quyền (trial 3 ngày / paid / owner) ---- */
 async function sha256(s){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function sess(){ try{ return JSON.parse(sessionStorage.getItem("tq_sess")||"null"); }catch(e){ return null; } }
 function trialDaysLeft(s){
@@ -714,14 +714,14 @@ function showTeacherLogin(){
   mode="teacher";
   app.innerHTML=`<div class="card">
     <h2>👨‍🏫 Giáo viên — Đăng nhập</h2>
-    <p class="sub">Đăng nhập để tạo phòng, dùng ngân hàng đề và AI.<br>Chưa có tài khoản? Đăng ký miễn phí — <b>dùng thử 7 ngày</b> full tính năng.</p>
+    <p class="sub">Đăng nhập để tạo phòng, dùng ngân hàng đề và AI.<br>Chưa có tài khoản? Đăng ký miễn phí — <b>dùng thử 3 ngày</b> full tính năng, cần xác nhận Gmail.</p>
     <div class="loginbox" id="tBody">
       <input type="text" id="adUser" placeholder="Tên đăng nhập (Gmail)..." autocomplete="username" onkeydown="if(event.key==='Enter')tLogin()">
       <input type="password" id="adPass" placeholder="Mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')tLogin()">
       <div id="loginErr" style="margin:6px 0"></div>
       <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
       <br><button class="btn big" onclick="showRegisterForm()">📝 Đăng ký tài khoản mới</button>
-      <p class="note">Đăng ký miễn phí — dùng thử 7 ngày full tính năng.</p>
+      <p class="note">Đăng ký miễn phí — xác nhận Gmail rồi dùng thử 3 ngày full tính năng.</p>
     </div>
     <button class="btn small" onclick="showHome()">← Về trang chủ</button>
   </div>`;
@@ -760,20 +760,25 @@ async function tLogin(){
     SFX.correct(); const pt=pendingTab; pendingTab=null; showTeacherMain(pt);
   }catch(e){ SFX.wrong(); err("Không kiểm tra được tài khoản. Kiểm tra mạng rồi thử lại nhé!"); }
 }
-/* ============ GIÁO VIÊN: TỰ ĐĂNG KÝ TÀI KHOẢN (trial 7 ngày) ============
-   Tên đăng nhập = Gmail (viết thường, unique). Mật khẩu hash SHA-256 phía
-   client (cùng hàm sha256() với đăng nhập) nên khớp tài khoản cũ. */
+/* ============ GIÁO VIÊN: TỰ ĐĂNG KÝ TÀI KHOẢN (trial 3 ngày, xác nhận Gmail) ============
+   2 bước: (1) nhập họ tên + Gmail + mật khẩu → Supabase Auth gửi mã 6 số về Gmail;
+   (2) nhập đúng mã → mới tạo tài khoản trial trong bảng licenses, hạn = lúc xác nhận + 3 ngày.
+   Chưa xác nhận thì chưa có tài khoản nên không đăng nhập được. Tên đăng nhập = Gmail
+   (viết thường, unique). Mật khẩu hash SHA-256 phía client (cùng hàm sha256() với
+   đăng nhập) nên khớp tài khoản cũ. Chỉ hỗ trợ @gmail.com. */
+let pendingReg=null; // {name, gmail, passHash} — chỉ giữ trong bộ nhớ trang, tải lại trang là mất
+let resendLeft=0, resendTimer=null;
 function showRegisterForm(){
   const body=document.getElementById("tBody"); if(!body) return;
   body.innerHTML=`<div class="loginbox">
     <h3>📝 Đăng ký tài khoản mới</h3>
-    <p class="sub">Đăng ký miễn phí — <b>dùng thử 7 ngày</b> full tính năng.<br>Tên đăng nhập của thầy sẽ là <b>Gmail</b> thầy nhập. Chỉ hỗ trợ địa chỉ <b>@gmail.com</b>.</p>
+    <p class="sub">Đăng ký miễn phí — <b>xác nhận Gmail rồi dùng thử 3 ngày</b> full tính năng.<br>Tên đăng nhập của thầy sẽ là <b>Gmail</b> thầy nhập. Chỉ hỗ trợ địa chỉ <b>@gmail.com</b>.</p>
     <input type="text" id="rgName" placeholder="Họ và tên..." autocomplete="name">
     <input type="email" id="rgGmail" placeholder="Gmail..." autocomplete="email">
     <input type="password" id="rgPass" placeholder="Mật khẩu (ít nhất 6 ký tự)..." autocomplete="new-password" onkeydown="if(event.key==='Enter')tRegister()">
     <input type="password" id="rgPass2" placeholder="Nhập lại mật khẩu..." autocomplete="new-password" onkeydown="if(event.key==='Enter')tRegister()">
     <div id="rgErr" style="margin:6px 0"></div>
-    <button class="btn big green" onclick="tRegister()">✅ Đăng ký & dùng thử 7 ngày</button>
+    <button class="btn big green" id="rgBtn" onclick="tRegister()">📩 Gửi mã xác nhận qua Gmail</button>
     <br><button class="btn small" onclick="showTeacherLogin()">← Quay lại đăng nhập</button>
   </div>`;
 }
@@ -789,25 +794,95 @@ async function tRegister(){
   if(!gmail.endsWith("@gmail.com")){ err("Hệ thống không hỗ trợ email này — chỉ đăng ký được bằng Gmail (@gmail.com)."); return; }
   if(p1.length<6){ err("Mật khẩu ít nhất 6 ký tự nhé!"); return; }
   if(p1!==p2){ err("Hai lần nhập mật khẩu chưa giống nhau!"); return; }
+  const btn=document.getElementById("rgBtn"); if(btn){ btn.disabled=true; btn.textContent="⏳ Đang gửi mã..."; }
   try{
+    sbInit();
     const {data:ex,error:exErr}=await sb.from("licenses").select("id").eq("username",gmail).limit(1);
     if(exErr) throw exErr;
-    if(ex&&ex.length){ SFX.wrong(); err("Gmail này đã đăng ký rồi — thầy đăng nhập nhé!"); return; }
+    if(ex&&ex.length){ SFX.wrong(); err("Gmail này đã đăng ký rồi — thầy đăng nhập nhé!"); if(btn){ btn.disabled=false; btn.textContent="📩 Gửi mã xác nhận qua Gmail"; } return; }
     const h=await sha256(p1);
-    const exp=new Date(Date.now()+7*86400000).toISOString();
-    const {data,error}=await sb.from("licenses").insert({username:gmail,pass_hash:h,plan:"trial",expires_at:exp,note:name}).select().single();
+    // Gửi mã 6 số về Gmail qua Supabase Auth (dùng sẵn mail của Supabase, không cần máy chủ riêng).
+    // Chưa nhập đúng mã thì chưa tạo tài khoản — trial chỉ tính từ lúc xác nhận xong.
+    const {error:otpErr}=await sb.auth.signInWithOtp({email:gmail,options:{shouldCreateUser:true}});
+    if(otpErr) throw otpErr;
+    pendingReg={name,gmail,passHash:h};
+    SFX.correct(); showVerifyForm();
+  }catch(e){
+    SFX.wrong();
+    if(btn){ btn.disabled=false; btn.textContent="📩 Gửi mã xác nhận qua Gmail"; }
+    const msg=(e&&e.message)||"";
+    if(/rate limit|too many|after \d+ seconds/i.test(msg)) err("Hệ thống vừa gửi mã rồi — thầy đợi khoảng 1 phút rồi bấm gửi lại nhé!");
+    else if(/signups not allowed|not allowed|disabled/i.test(msg)) err("Chưa gửi được mã xác nhận — thầy liên hệ thầy Nhật Phong để kiểm tra lại nhé!");
+    else err("Không gửi được mã: "+(msg||"lỗi mạng, thầy thử lại nhé!"));
+  }
+}
+function showVerifyForm(){
+  const body=document.getElementById("tBody"); if(!body||!pendingReg) return;
+  const g=pendingReg.gmail;
+  body.innerHTML=`<div class="loginbox">
+    <h3>📩 Xác nhận Gmail</h3>
+    <p class="sub">Mã gồm <b>6 số</b> vừa gửi về <b>${esc(g)}</b> (hiệu lực 10 phút).<br>Không thấy mail thì kiểm tra cả hộp thư <b>Spam / Quảng cáo</b> nhé!</p>
+    <input type="text" id="rgCode" placeholder="Nhập mã 6 số..." inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="letter-spacing:.4em;text-align:center;font-size:20px" onkeydown="if(event.key==='Enter')tVerifyCode()">
+    <div id="rgErr" style="margin:6px 0"></div>
+    <button class="btn big green" id="vfBtn" onclick="tVerifyCode()">✅ Xác nhận & kích hoạt dùng thử 3 ngày</button>
+    <br><button class="btn small" id="rsBtn" onclick="tResendCode()">📩 Gửi lại mã</button>
+    <button class="btn small" onclick="pendingReg=null;showRegisterForm()">← Đổi Gmail khác</button>
+  </div>`;
+  startResendCooldown();
+  const c=document.getElementById("rgCode"); if(c) c.focus();
+}
+function startResendCooldown(){
+  if(resendTimer) clearInterval(resendTimer);
+  resendLeft=60;
+  const tick=()=>{ const b=document.getElementById("rsBtn"); if(!b){ clearInterval(resendTimer); return; }
+    if(resendLeft<=0){ b.disabled=false; b.textContent="📩 Gửi lại mã"; clearInterval(resendTimer); return; }
+    b.disabled=true; b.textContent=`📩 Gửi lại mã (${resendLeft}s)`; resendLeft--; };
+  tick(); resendTimer=setInterval(tick,1000);
+}
+async function tResendCode(){
+  if(!pendingReg) return;
+  const errBox=document.getElementById("rgErr");
+  try{
+    const {error}=await sb.auth.signInWithOtp({email:pendingReg.gmail,options:{shouldCreateUser:true}});
+    if(error) throw error;
+    if(errBox) errBox.innerHTML=`<div class="cfgwarn" style="border-color:#1d9e52">✅ Đã gửi lại mã về ${esc(pendingReg.gmail)}.</div>`;
+    startResendCooldown();
+  }catch(e){ if(errBox) errBox.innerHTML=`<div class="cfgwarn">⚠️ Chưa gửi lại được — thầy đợi 1 phút rồi thử lại nhé!</div>`; }
+}
+async function tVerifyCode(){
+  if(!pendingReg){ showRegisterForm(); return; }
+  const code=(document.getElementById("rgCode").value||"").trim().replace(/\D/g,"");
+  const errBox=document.getElementById("rgErr");
+  const err=m=>{ errBox.innerHTML=`<div class="cfgwarn">⚠️ ${m}</div>`; };
+  if(code.length!==6){ err("Mã gồm 6 số — thầy nhập đủ mã trong mail nhé!"); return; }
+  const btn=document.getElementById("vfBtn"); if(btn){ btn.disabled=true; btn.textContent="⏳ Đang xác nhận..."; }
+  let vfErr=null;
+  try{ ({error:vfErr}=await sb.auth.verifyOtp({email:pendingReg.gmail,token:code,type:"email"})); }catch(e){ vfErr=e; }
+  if(vfErr){
+    SFX.wrong();
+    if(btn){ btn.disabled=false; btn.textContent="✅ Xác nhận & kích hoạt dùng thử 3 ngày"; }
+    err("Mã chưa đúng hoặc đã hết hạn — thầy kiểm tra lại mail hoặc bấm <b>Gửi lại mã</b> nhé!");
+    return;
+  }
+  // Xác nhận đúng → mới tạo tài khoản, trial 3 ngày tính TỪ LÚC NÀY.
+  try{
+    const exp=new Date(Date.now()+3*86400000).toISOString();
+    const {error}=await sb.from("licenses").insert({username:pendingReg.gmail,pass_hash:pendingReg.passHash,plan:"trial",expires_at:exp,note:pendingReg.name}).select().single();
     if(error) throw error;
     // Ghi log đăng ký vào Google Sheet (không chặn đăng nhập nếu ghi lỗi)
     try{
       const fmt=d=>{const p=n=>String(n).padStart(2,"0");return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes());};
-      fetch(SHEET_LOG_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({name:name,gmail:gmail,date:fmt(new Date()),plan:"trial",exp:fmt(new Date(exp))})}).catch(()=>{});
+      fetch(SHEET_LOG_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({name:pendingReg.name,gmail:pendingReg.gmail,date:fmt(new Date()),plan:"trial",exp:fmt(new Date(exp))})}).catch(()=>{});
     }catch(_){}
-    sessionStorage.setItem("tq_sess",JSON.stringify({u:gmail,plan:"trial",exp}));
+    const g=pendingReg.gmail; pendingReg=null;
+    try{ await sb.auth.signOut(); }catch(_){} // app dùng phiên riêng (tq_sess), không giữ phiên Auth
+    sessionStorage.setItem("tq_sess",JSON.stringify({u:g,plan:"trial",exp}));
     SFX.correct(); const pt=pendingTab; pendingTab=null; showTeacherMain(pt);
   }catch(e){
     SFX.wrong();
-    if(e&&(e.code==="23505"||/duplicate key/i.test(e.message||""))) err("Gmail này đã đăng ký rồi — thầy đăng nhập nhé!");
-    else err("Không đăng ký được: "+(e&&e.message?e.message:"lỗi mạng, thầy thử lại nhé!"));
+    if(btn){ btn.disabled=false; btn.textContent="✅ Xác nhận & kích hoạt dùng thử 3 ngày"; }
+    if(e&&(e.code==="23505"||/duplicate key/i.test(e.message||""))){ pendingReg=null; err("Gmail này đã kích hoạt rồi — thầy đăng nhập nhé!"); }
+    else err("Đã xác nhận Gmail nhưng chưa tạo được tài khoản — thầy bấm đăng nhập thử, nếu chưa vào được thì đăng ký lại nhé!");
   }
 }
 function tLogout(){ sessionStorage.removeItem("tq_sess"); pendingTab=null; SFX.click(); showTeacherLogin(); }
@@ -836,7 +911,7 @@ async function tTab(which){
     const tn=which==="bank"?"📚 Ngân hàng câu hỏi":"🤖 AI tạo câu hỏi";
     document.getElementById("tBody").innerHTML=`<div class="loginbox">
       <h3>🔒 ${tn} — Đăng nhập để dùng</h3>
-      <p class="sub">Đăng nhập tài khoản để dùng tính năng này — tài khoản <b>dùng thử miễn phí 7 ngày</b> cũng được.<br>
+      <p class="sub">Đăng nhập tài khoản để dùng tính năng này — tài khoản <b>dùng thử miễn phí 3 ngày</b> cũng được.<br>
       Chưa có tài khoản? Bấm <b>📝 Đăng ký tài khoản mới</b> bên dưới.<br>
       Cần hỗ trợ, liên hệ thầy <b>Nhật Phong</b>:<br>
       <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook: Nhật Phong</a>
@@ -847,7 +922,7 @@ async function tTab(which){
       <div id="loginErr" style="margin:6px 0"></div>
       <button class="btn big green" onclick="tLogin()">🔓 Đăng nhập</button>
       <br><button class="btn small" onclick="showRegisterForm()">📝 Đăng ký tài khoản mới</button>
-      <p class="note">Đăng ký miễn phí — dùng thử 7 ngày full tính năng.</p>
+      <p class="note">Đăng ký miễn phí — xác nhận Gmail rồi dùng thử 3 ngày full tính năng.</p>
     </div>`;
     return;
   }
