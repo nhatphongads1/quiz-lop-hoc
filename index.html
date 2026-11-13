@@ -244,7 +244,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="ontap3d-20261111";
+const BUILD_ID="khampha-20261113";
 const SHEET_LOG_URL="https://script.google.com/macros/s/AKfycbzQEzXXgUk23oYVJxF28Bj6fYzrngn662NKhRWrjuxTvqooTtTZy7EZf6EPx5R54cZY/exec";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
@@ -683,13 +683,40 @@ function showHome(){
     <button class="btn big green" onclick="SFX.click();showTeacher()">👨‍🏫 Giáo viên<br><small style="font-weight:400">Tạo phòng • Ngân hàng đề • AI</small></button>
     <button class="btn big orange" onclick="SFX.click();showStudentJoin()">🎒 Học sinh<br><small style="font-weight:400">Vào phòng bằng mã PIN</small></button>
     <button class="btn big" onclick="SFX.click();showSelfPractice()">🏠 Tự luyện<br><small style="font-weight:400">Tự chọn đề • Luyện ở nhà</small></button>
-    <a class="btn big purple" href="https://ontap3d.vercel.app" target="_blank" rel="noopener" onclick="SFX.click()">🎮 Học qua trò chơi<br><small style="font-weight:400">Ôn tập 3D • Tin 5: Bản quyền nội dung thông tin</small></a>
+    <button class="btn big" onclick="SFX.click();showExplore()">🔍 Khám phá trải nghiệm<br><small style="font-weight:400">Ôn tập 3D • Chọn khối của em</small></button>
     <p class="note">Thầy mở trang này trên máy chiếu • Trò mở cùng địa chỉ này trên máy mình</p>
     <div class="footer">👨‍💻 Phát triển bởi <b>thầy Nhật Phong</b><br>
       <a href="https://www.facebook.com/truongng.nhatphong" target="_blank" rel="noopener">📘 Facebook: Nhật Phong</a>
       &nbsp;•&nbsp;
       <a href="https://zalo.me/0793576831" target="_blank" rel="noopener">💬 Zalo: 0793576831</a>
     </div>
+  </div>`;
+}
+
+/* ============ KHÁM PHÁ TRẢI NGHIỆM (ôn tập 3D theo khối) ============
+   Học sinh chọn khối trước (Khối 4 / Khối 5) rồi mới thấy nút vào game
+   của khối mình — mở tab mới, không mất phòng đang chơi. */
+function showExplore(){
+  mode=null; document.body.dataset.gtheme="classic";
+  app.innerHTML=`<div class="card">
+    <h2>🔍 Khám phá trải nghiệm</h2>
+    <p class="sub">Ôn tập 3D vui như chơi game — em học lớp mấy? Chọn khối của em nhé!</p>
+    <button class="btn big" onclick="SFX.click();showExploreGrade(4)">4️⃣ Khối 4<br><small style="font-weight:400">Tin học 4 • Bài 5–6</small></button>
+    <button class="btn big purple" onclick="SFX.click();showExploreGrade(5)">5️⃣ Khối 5<br><small style="font-weight:400">Tin học 5 • Bản quyền nội dung thông tin</small></button>
+    <br><button class="btn small" onclick="showHome()">← Về trang chủ</button>
+  </div>`;
+}
+function showExploreGrade(g){
+  const is4=g===4;
+  const link=is4?"https://ontap3d.vercel.app/?bai=tin4-bai-5-6":"https://ontap3d.vercel.app";
+  const subj=is4?"Tin học 4 • Bài 5–6: Thao tác với tệp &amp; Sử dụng phần mềm":"Tin học 5 • Bản quyền nội dung thông tin";
+  const cls=is4?"btn big":"btn big purple";
+  app.innerHTML=`<div class="card">
+    <h2>${is4?"4️⃣":"5️⃣"} Khối ${g}</h2>
+    <p class="sub">${subj}</p>
+    <a class="${cls}" href="${link}" target="_blank" rel="noopener" onclick="SFX.click()">🔍 Khám phá trải nghiệm<br><small style="font-weight:400">Ôn tập 3D • Mở tab mới</small></a>
+    <br><button class="btn small" onclick="SFX.click();showExplore()">← Chọn khối khác</button>
+    <button class="btn small" onclick="showHome()">← Về trang chủ</button>
   </div>`;
 }
 
