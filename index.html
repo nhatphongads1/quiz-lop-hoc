@@ -258,7 +258,7 @@ const CONFIG = {
   SUPABASE_URL: "https://qxoovkdkjbdkzolzpzio.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4b292a2RramJka3pvbHpwemlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDUwMTgsImV4cCI6MjEwNzQ4MTAxOH0.IulJ8n9v4L4STSN0h6A77jQY7xpvHH1AnXTVGTQ69Ac",
 };
-const BUILD_ID="thap-vinh-danh-20261113";
+const BUILD_ID="thap-vinh-danh-20261113b";
 const SHEET_LOG_URL="https://script.google.com/macros/s/AKfycbzQEzXXgUk23oYVJxF28Bj6fYzrngn662NKhRWrjuxTvqooTtTZy7EZf6EPx5R54cZY/exec";
 /* Tự kiểm tra phiên bản: máy nào còn giữ bản cũ trong bộ nhớ đệm (máy dùng chung ở trường hay dính)
    sẽ tự tải lại đúng 1 lần để nhận bản mới nhất */
@@ -533,6 +533,14 @@ function setRoomBg(url){
   else { document.body.classList.remove("roombg"); document.body.style.backgroundImage=""; }
 }
 function clearRoomBg(){ setRoomBg(null); }
+/* Tải trước ảnh phòng/công viên/tháp/boss ngay từ sảnh chờ để vào game không bị chờ ảnh. */
+let _advImgPreloaded=false;
+function preloadAdventureImages(){
+  if(_advImgPreloaded||document.body.dataset.gtheme!=="adventure") return;
+  _advImgPreloaded=true;
+  [...ROOM_BG,"boss.jpg"].forEach(f=>{ const im=new Image(); im.src=STAGE_IMG_BASE+f; });
+  [PARK_IMG_URL,TOWER_IMG_URL].forEach(u=>{ const im=new Image(); im.src=u; });
+}
 function applyRoomBg(){
   if(document.body.dataset.gtheme!=="adventure"||!room){ clearRoomBg(); return; }
   const N=room.question_set?room.question_set.length:0;
@@ -1580,12 +1588,12 @@ async function tRejoin(){
   else tPodium();
 }
 function tLobby(){
-  LobbyMusic.start(); applyTheme();
+  LobbyMusic.start(); applyTheme(); preloadAdventureImages();
   const adv=document.body.dataset.gtheme==="adventure";
   const n=room.question_set.length;
   const journey=adv?`<h3>🗺️ Bản đồ nhiệm vụ</h3>
     <div class="journey"><span class="jflag">🏁</span>${Array.from({length:n},(_,i)=>`<span class="jlink"></span><span class="jstop">${i+1}</span>`).join("")}<span class="jlink"></span><span class="jflag">🏆</span></div>
-    <div class="jcap">${n} chặng thám hiểm đang chờ biệt đội!</div>`:"";
+    <div class="jcap">5 phòng thám hiểm đang chờ biệt đội!</div>`:"";
   const subHtml=adv?"Thám hiểm viên mở link game rồi nhập <b>mật mã</b> này!"
     :`Học sinh mở <b>${esc(location.host+location.pathname)}</b> rồi nhập PIN này`;
   app.innerHTML=`<div class="card">
@@ -2231,7 +2239,7 @@ function onRoomChange(){
   else if(room.phase==="podium"){ sPodium(); }
 }
 function sLobby(){
-  applyTheme();
+  applyTheme(); preloadAdventureImages();
   const adv=document.body.dataset.gtheme==="adventure";
   app.innerHTML=`<div class="card">${adv?`<h2>🧭 Sẵn sàng lên đường, <b>${esc(myPlayer.name)}</b>!</h2>
     <p class="sub">Em đã gia nhập biệt đội. Chờ thầy bắt đầu chuyến phiêu lưu nhé...</p>`
